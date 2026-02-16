@@ -50,14 +50,23 @@ defmodule FileProcessorWeb.ProcessingController do
   defp process_files(conn, uploads, mode) do
     start_time = System.monotonic_time(:millisecond)
 
-    file_paths =
-      Enum.map(uploads, fn %Plug.Upload{path: path} -> path end)
+    upload_dir = Path.join(:code.priv_dir(:file_processor), "uploads")
+    File.mkdir_p!(upload_dir)
 
+    # Copiar archivos con su nombre real (NO usar el temporal)
+    saved_paths =
+      Enum.map(uploads, fn %Plug.Upload{path: temp_path, filename: filename} ->
+        destination = Path.join(upload_dir, filename)
+        File.cp!(temp_path, destination)
+        destination
+      end)
+
+    # Procesar archivos reales con extensión correcta
     result_data =
       case mode do
-        "sequential" -> CoreAdapter.process_sequential(file_paths)
-        "parallel" -> CoreAdapter.process_parallel(file_paths)
-        "benchmark" -> CoreAdapter.run_benchmark(file_paths)
+        "sequential" -> CoreAdapter.process_sequential(saved_paths)
+        "parallel" -> CoreAdapter.process_parallel(saved_paths)
+        "benchmark" -> CoreAdapter.run_benchmark(saved_paths)
         _ -> {:error, "Modo inválido"}
       end
 
@@ -85,7 +94,6 @@ defmodule FileProcessorWeb.ProcessingController do
            result: formatted_result
          }) do
       {:ok, execution} ->
-        IO.inspect(execution, label: "EJECUCIÓN GUARDADA")
         redirect(conn, to: ~p"/executions/#{execution.id}")
 
       {:error, changeset} ->
