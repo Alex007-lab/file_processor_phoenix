@@ -18,6 +18,11 @@ defmodule FileProcessorWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    resources "/executions", ExecutionController
+
+    get "/processing", ProcessingController, :new
+    post "/processing", ProcessingController, :create
+    get "/executions/:id/download", ExecutionController, :download
   end
 
   # Other scopes may use custom stacks.

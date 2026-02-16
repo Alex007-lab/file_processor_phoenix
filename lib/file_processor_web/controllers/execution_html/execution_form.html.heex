@@ -1,0 +1,11 @@
+<.form :let={f} for={@changeset} action={@action}>
+  <.input field={f[:timestamp]} type="datetime-local" label="Timestamp" />
+  <.input field={f[:files]} type="textarea" label="Files" />
+  <.input field={f[:mode]} type="text" label="Mode" />
+  <.input field={f[:total_time]} type="number" label="Total time" />
+  <.input field={f[:result]} type="textarea" label="Result" />
+  <footer>
+    <.button variant="primary">Save Execution</.button>
+    <.button :if={@return_to} href={@return_to}>Cancel</.button>
+  </footer>
+</.form>

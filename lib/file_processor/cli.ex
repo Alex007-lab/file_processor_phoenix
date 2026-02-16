@@ -51,16 +51,24 @@ defmodule ProcesadorArchivos.CLI do
     # Parse command line arguments using OptionParser
     case OptionParser.parse(args,
            switches: [
-             help: :boolean,      # --help flag (boolean)
-             mode: :string,       # --mode option (string)
-             timeout: :integer,   # --timeout option (integer)
-             output: :string      # --output option (string)
+             # --help flag (boolean)
+             help: :boolean,
+             # --mode option (string)
+             mode: :string,
+             # --timeout option (integer)
+             timeout: :integer,
+             # --output option (string)
+             output: :string
            ],
            aliases: [
-             h: :help,           # -h alias for --help
-             m: :mode,           # -m alias for --mode
-             t: :timeout,        # -t alias for --timeout
-             o: :output          # -o alias for --output
+             # -h alias for --help
+             h: :help,
+             # -m alias for --mode
+             m: :mode,
+             # -t alias for --timeout
+             t: :timeout,
+             # -o alias for --output
+             o: :output
            ]
          ) do
       # Pattern 1: Help flag is present
@@ -79,15 +87,20 @@ defmodule ProcesadorArchivos.CLI do
         # Convert options list to map for easier access
         opts_map =
           case opts do
-            [] -> %{}                    # Empty options → empty map
-            _ -> Enum.into(opts, %{})    # Convert list of tuples to map
+            # Empty options → empty map
+            [] -> %{}
+            # Convert list of tuples to map
+            _ -> Enum.into(opts, %{})
           end
 
         # Build configuration with defaults for missing values
         config = %{
-          mode: Map.get(opts_map, :mode, "parallel"),        # Default: "parallel"
-          timeout: Map.get(opts_map, :timeout, 5000),        # Default: 5000ms
-          output_dir: Map.get(opts_map, :output, "output")   # Default: "output"
+          # Default: "parallel"
+          mode: Map.get(opts_map, :mode, "parallel"),
+          # Default: 5000ms
+          timeout: Map.get(opts_map, :timeout, 5000),
+          # Default: "output"
+          output_dir: Map.get(opts_map, :output, "output")
         }
 
         # Start processing the files with the configuration
@@ -148,7 +161,8 @@ defmodule ProcesadorArchivos.CLI do
     # Validate directory exists
     unless File.dir?(dir) do
       IO.puts("Error: Directory doesn't exist")
-      System.halt(1)  # Exit with error code
+      # Exit with error code
+      System.halt(1)
     end
 
     # List directory contents
@@ -166,11 +180,13 @@ defmodule ProcesadorArchivos.CLI do
             IO.puts("Sequential mode...")
 
             # Call sequential processor with configuration
-            result = ProcesadorArchivos.process_files_with_config(dir, %{
-              timeout: config.timeout,
-              generate_report: true,  # Force report generation
-              verbose: false
-            })
+            result =
+              ProcesadorArchivos.process_files_with_config(dir, %{
+                timeout: config.timeout,
+                # Force report generation
+                generate_report: true,
+                verbose: false
+              })
 
             # Handle result
             case result do
@@ -204,7 +220,8 @@ defmodule ProcesadorArchivos.CLI do
       # Error: cannot read directory
       {:error, razon} ->
         IO.puts("Error reading directory: #{razon}")
-        System.halt(1)  # Exit with error code
+        # Exit with error code
+        System.halt(1)
     end
   end
 
@@ -223,7 +240,8 @@ defmodule ProcesadorArchivos.CLI do
     # Validate file exists
     unless File.exists?(file) do
       IO.puts("Error: File doesn't exist")
-      System.halt(1)  # Exit with error code
+      # Exit with error code
+      System.halt(1)
     end
 
     # Show file being processed

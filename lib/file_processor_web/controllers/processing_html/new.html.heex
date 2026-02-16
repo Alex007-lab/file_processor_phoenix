@@ -1,0 +1,59 @@
+<Layouts.app flash={@flash}>
+  <.header>
+    Procesar Archivos
+    <:subtitle>Selecciona los archivos y el modo de procesamiento</:subtitle>
+  </.header>
+
+  <.form for={%{}} action={~p"/processing"} multipart>
+    
+<!-- Selección de archivos -->
+    <div class="space-y-2">
+      <label class="block font-semibold text-lg">
+        Selecciona archivos (.csv, .json, .log)
+      </label>
+
+      <input
+        type="file"
+        name="files[]"
+        multiple
+        accept=".csv,.json,.log"
+        required
+        class="block w-full border rounded p-2 bg-gray-800 text-white"
+      />
+    </div>
+    
+<!-- Selección de modo -->
+    <div class="space-y-4">
+      <label class="block font-semibold text-lg">
+        Modo de procesamiento
+      </label>
+
+      <div class="flex gap-6">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="radio" name="mode" value="sequential" required />
+          <span>Secuencial</span>
+        </label>
+
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="radio" name="mode" value="parallel" />
+          <span>Paralelo</span>
+        </label>
+
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="radio" name="mode" value="benchmark" />
+          <span>Benchmark</span>
+        </label>
+      </div>
+    </div>
+    
+<!-- Botón -->
+    <div>
+      <button
+        type="submit"
+        class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded shadow"
+      >
+        Procesar Archivos
+      </button>
+    </div>
+  </.form>
+</Layouts.app>

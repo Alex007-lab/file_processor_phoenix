@@ -1,0 +1,8 @@
+<Layouts.app flash={@flash}>
+  <.header>
+    New Execution
+    <:subtitle>Use this form to manage execution records in your database.</:subtitle>
+  </.header>
+
+  <.execution_form changeset={@changeset} action={~p"/executions"} return_to={~p"/executions"} />
+</Layouts.app>

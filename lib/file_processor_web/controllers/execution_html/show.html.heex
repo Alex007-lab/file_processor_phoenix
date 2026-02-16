@@ -1,0 +1,32 @@
+<Layouts.app flash={@flash}>
+  <.header>
+    Detalle de Ejecución
+    <:subtitle>Reporte generado automáticamente</:subtitle>
+
+    <:actions>
+      <.button navigate={~p"/executions"}>
+        <.icon name="hero-arrow-left" /> Volver
+      </.button>
+
+      <.button variant="primary" href={~p"/executions/#{@execution.id}/download"}>
+        <.icon name="hero-arrow-down-tray" /> Descargar Reporte
+      </.button>
+    </:actions>
+  </.header>
+
+  <div class="space-y-6">
+    <div class="rounded-lg border p-4 bg-gray-800/40">
+      <p><strong>Fecha:</strong> {@execution.timestamp}</p>
+      <p><strong>Archivos:</strong> {@execution.files}</p>
+      <p><strong>Modo:</strong> {@execution.mode}</p>
+      <p><strong>Tiempo Total:</strong> {@execution.total_time} ms</p>
+      <p><strong>Estado:</strong> Reporte generado</p>
+    </div>
+
+    <div class="rounded-lg border p-4 bg-gray-900 text-sm overflow-auto">
+      <pre class="whitespace-pre-wrap">
+<%= @execution.result %>
+      </pre>
+    </div>
+  </div>
+</Layouts.app>

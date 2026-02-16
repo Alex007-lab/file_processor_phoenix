@@ -1,0 +1,49 @@
+<Layouts.app flash={@flash}>
+  <.header>
+    Historial de Ejecuciones
+  </.header>
+
+  <.table id="executions" rows={@executions}>
+    <:col :let={execution} label="Fecha">
+      {execution.timestamp}
+    </:col>
+
+    <:col :let={execution} label="Archivos">
+      {execution.files}
+    </:col>
+
+    <:col :let={execution} label="Modo">
+      {execution.mode}
+    </:col>
+
+    <:col :let={execution} label="Tiempo Total">
+      {execution.total_time} ms
+    </:col>
+
+    <:col label="Resultado">
+      Reporte generado
+    </:col>
+
+    <:action :let={execution}>
+      <.link navigate={~p"/executions/#{execution.id}"}>
+        Ver
+      </.link>
+    </:action>
+
+    <:action :let={execution}>
+      <.link href={~p"/executions/#{execution.id}/download"}>
+        Descargar
+      </.link>
+    </:action>
+
+    <:action :let={execution}>
+      <.link
+        href={~p"/executions/#{execution.id}"}
+        method="delete"
+        data-confirm="¿Seguro que deseas borrar esta ejecución?"
+      >
+        Borrar
+      </.link>
+    </:action>
+  </.table>
+</Layouts.app>
