@@ -53,7 +53,7 @@ defmodule FileProcessorWeb.ProcessingController do
     upload_dir = Path.join(:code.priv_dir(:file_processor), "uploads")
     File.mkdir_p!(upload_dir)
 
-    # Copiar archivos con su nombre real (NO usar el temporal)
+    # Copiar archivos con su nombre real
     saved_paths =
       Enum.map(uploads, fn %Plug.Upload{path: temp_path, filename: filename} ->
         destination = Path.join(upload_dir, filename)
@@ -61,13 +61,31 @@ defmodule FileProcessorWeb.ProcessingController do
         destination
       end)
 
-    # Procesar archivos reales con extensión correcta
+    # Procesar según el modo
     result_data =
       case mode do
-        "sequential" -> CoreAdapter.process_sequential(saved_paths)
-        "parallel" -> CoreAdapter.process_parallel(saved_paths)
-        "benchmark" -> CoreAdapter.run_benchmark(saved_paths)
-        _ -> {:error, "Modo inválido"}
+        "sequential" ->
+          {:ok, CoreAdapter.process_sequential(saved_paths)}
+
+        "parallel" ->
+          case CoreAdapter.process_parallel(saved_paths) do
+            %{results: results, total_time: time, successes: ok, errors: err} ->
+              {:ok, %{
+                type: "parallel",
+                results: results,
+                total_time: time,
+                successes: ok,
+                errors: err
+              }}
+            other ->
+              {:ok, %{type: "parallel", result: other}}
+          end
+
+        "benchmark" ->
+          CoreAdapter.run_benchmark(saved_paths)
+
+        _ ->
+          {:error, "Modo inválido"}
       end
 
     total_time = System.monotonic_time(:millisecond) - start_time
@@ -86,12 +104,19 @@ defmodule FileProcessorWeb.ProcessingController do
   # GUARDADO EN BASE DE DATOS
   # ==========================================
   defp save_execution(conn, files_string, mode, total_time, formatted_result) do
+    # Determinar el estado basado en el resultado
+    status = if String.contains?(formatted_result, "❌") or
+                String.contains?(formatted_result, "Error"),
+              do: "partial",
+              else: "success"
+
     case Executions.create_execution(%{
            timestamp: DateTime.utc_now(),
            files: files_string,
            mode: mode,
            total_time: total_time,
-           result: formatted_result
+           result: formatted_result,
+           status: status
          }) do
       {:ok, execution} ->
         redirect(conn, to: ~p"/executions/#{execution.id}")
@@ -108,55 +133,173 @@ defmodule FileProcessorWeb.ProcessingController do
   # ==========================================
   # CONSTRUCCIÓN DEL REPORTE
   # ==========================================
-  defp build_report({:error, reason}, _mode, _time) do
+
+  defp build_report({:ok, data}, mode, total_time) do
+    case mode do
+      "benchmark" ->
+        CoreAdapter.extract_benchmark_summary({:ok, data})
+
+      "parallel" when is_map(data) ->
+        """
+        =====================================
+        MODO: PARALLEL
+        =====================================
+
+        ⏱️  Tiempo total: #{total_time} ms
+        ✅ Exitosos: #{Map.get(data, :successes, 0)}
+        ❌ Errores:   #{Map.get(data, :errors, 0)}
+
+        Resultados por archivo:
+        #{extract_parallel_results(data[:results])}
+        """
+
+      "sequential" ->
+        """
+        =====================================
+        MODO: SEQUENTIAL
+        =====================================
+
+        ⏱️  Tiempo total: #{total_time} ms
+
+        Resultados:
+        #{extract_sequential_results(data)}
+        """
+
+      _ ->
+        inspect(data, pretty: true)
+    end
+  end
+
+  defp build_report({:error, reason}, _mode, _total_time) do
     """
     =====================================
-    ERROR EN PROCESAMIENTO
+    ❌ ERROR EN PROCESAMIENTO
     =====================================
 
-    #{inspect(reason)}
+    #{reason}
     """
   end
 
-  defp build_report(result, "parallel", total_time) when is_map(result) do
+  defp build_report(data, mode, total_time) do
     """
     =====================================
-    MODO: PARALLEL
+    MODO: #{String.upcase(mode)}
     =====================================
 
     Tiempo total: #{total_time} ms
-    Procesados exitosamente: #{Map.get(result, :successes, 0)}
-    Errores: #{Map.get(result, :errors, 0)}
+
+    Resultado:
+    #{inspect(data, pretty: true, limit: :infinity)}
     """
   end
 
-  defp build_report(result, "sequential", total_time) do
-    """
-    =====================================
-    MODO: SEQUENTIAL
-    =====================================
+  # ==========================================
+  # EXTRACTORES ESPECÍFICOS POR MODO
+  # ==========================================
 
-    Tiempo total: #{total_time} ms
+  defp extract_sequential_results(results) when is_list(results) do
+    Enum.map_join(results, "\n", fn result ->
+      case result do
+        %{archivo: file, estado: estado, tipo_archivo: tipo} = full_result ->
+          """
+          [#{file}] - #{String.upcase(Atom.to_string(tipo))}
+          ═══════════════════════════════
+          • Estado: #{estado}
+          #{format_sequential_detalles(full_result)}
+          """
+        other ->
+          "  • #{inspect(other)}"
+      end
+    end)
+  end
+  defp extract_sequential_results(_), do: "  No hay resultados detallados"
 
-    Resultado detallado:
-    #{inspect(result, pretty: true, limit: :infinity)}
-    """
+  defp extract_parallel_results(results) when is_list(results) do
+    Enum.map_join(results, "\n", fn result ->
+      case result do
+        %{status: status, type: type, file_name: file} = full_result ->
+          """
+          [#{file}] - #{String.upcase(Atom.to_string(type))}
+          ═══════════════════════════════
+          • Estado: #{status}
+          #{format_parallel_metrics(full_result)}
+          """
+        other ->
+          "  • #{inspect(other)}"
+      end
+    end)
+  end
+  defp extract_parallel_results(_), do: ""
+
+  defp format_sequential_detalles(result) do
+    case Map.get(result, :tipo_archivo) do
+      :csv ->
+        detalles = Map.get(result, :detalles, %{})
+        """
+        • Registros válidos: #{Map.get(detalles, :lineas_validas, 0)}
+        • Registros inválidos: #{Map.get(detalles, :lineas_invalidas, 0)}
+        • Total líneas: #{Map.get(detalles, :total_lineas, 0)}
+        • Éxito: #{Map.get(detalles, :porcentaje_exito, 0)}%
+        """
+
+      :json ->
+        detalles = Map.get(result, :detalles, %{})
+        """
+        • Total usuarios: #{Map.get(detalles, :total_usuarios, 0)}
+        • Usuarios activos: #{Map.get(detalles, :usuarios_activos, 0)}
+        • Total sesiones: #{Map.get(detalles, :total_sesiones, 0)}
+        """
+
+      :log ->
+        detalles = Map.get(result, :detalles, %{})
+        niveles = Map.get(detalles, :distribucion_niveles, %{})
+        """
+        • Líneas válidas: #{Map.get(result, :lineas_procesadas, 0)}
+        • Líneas inválidas: #{Map.get(result, :lineas_con_error, 0)}
+        • Total líneas: #{Map.get(detalles, :total_lineas, 0)}
+
+        Distribución:
+          • DEBUG: #{Map.get(niveles, :debug, 0)}
+          • INFO:  #{Map.get(niveles, :info, 0)}
+          • WARN:  #{Map.get(niveles, :warn, 0)}
+          • ERROR: #{Map.get(niveles, :error, 0)}
+          • FATAL: #{Map.get(niveles, :fatal, 0)}
+        """
+
+      _ ->
+        inspect(result, pretty: true)
+    end
   end
 
-  defp build_report(result, "benchmark", total_time) do
-    """
-    =====================================
-    MODO: BENCHMARK
-    =====================================
+  defp format_parallel_metrics(result) do
+    case Map.get(result, :type) do
+      :csv ->
+        """
+        • Registros válidos: #{Map.get(result, :valid_records, 0)}
+        • Productos únicos: #{Map.get(result, :unique_products, 0)}
+        • Ventas totales: $#{Map.get(result, :total_sales, 0)}
+        """
 
-    Tiempo total ejecución: #{total_time} ms
+      :json ->
+        """
+        • Total usuarios: #{Map.get(result, :total_users, 0)}
+        • Usuarios activos: #{Map.get(result, :active_users, 0)}
+        • Total sesiones: #{Map.get(result, :total_sessions, 0)}
+        """
 
-    Comparativa:
-    #{inspect(result, pretty: true, limit: :infinity)}
-    """
-  end
+      :log ->
+        """
+        • Líneas totales: #{Map.get(result, :total_lines, 0)}
+        • Distribución:
+            DEBUG(#{Map.get(result, :debug, 0)}),
+            INFO(#{Map.get(result, :info, 0)}),
+            WARN(#{Map.get(result, :warn, 0)}),
+            ERROR(#{Map.get(result, :error, 0)}),
+            FATAL(#{Map.get(result, :fatal, 0)})
+        """
 
-  defp build_report(result, _mode, _time) do
-    inspect(result, pretty: true, limit: :infinity)
+      _ ->
+        ""
+    end
   end
 end

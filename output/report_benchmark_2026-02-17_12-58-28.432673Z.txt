@@ -1,0 +1,86 @@
+
+================================================================================
+                        BENCHMARK CONFIGURATION
+================================================================================
+
+PARALLELISM CONFIGURATION:
+- Total files: 6
+- Workers used: 6 (one per file)
+- System cores: 8
+- Workers/files ratio: 6/6
+
+================================================================================
+                      BENCHMARK REPORT - COMPARATIVE
+================================================================================
+
+Generation date: 2026-02-17_12-58-28.432673Z
+Processed folder: /tmp/benchmark_2026-02-17 12-58-28.418846Z
+Total files: 6
+
+================================================================================
+                          PERFORMANCE RESULTS
+================================================================================
+
+EXECUTION TIMES:
+- Sequential Mode: 5 milliseconds
+- Parallel Mode:   3 milliseconds
+- Improvement factor: 1.67x faster
+- Improvement percentage: 40.0%
+
+================================================================================
+                        PROCESSING STATISTICS
+================================================================================
+
+SEQUENTIAL MODE:
+- Total files: 6
+- Successful: 6
+- With errors: 0
+- Success rate: 100.0%
+
+Distribution by type:
+  - CSV:  2 files
+  - JSON: 2 files
+  - LOG:  2 files
+
+PARALLEL MODE:
+- Total files: 6
+- Successful: 6
+- With errors: 0
+- Success rate: 100.0%
+
+Distribution by type:
+  - CSV:  2 files
+  - JSON: 2 files
+  - LOG:  2 files
+
+================================================================================
+                            COMPARATIVE ANALYSIS
+================================================================================
+
+PERFORMANCE DIFFERENCE:
+- Time saved: 2 ms
+- Relative efficiency: 1.67x
+
+RESULTS DIFFERENCE:
+- Additional successful files in parallel: 0
+- Error difference: 0
+
+================================================================================
+                          RECOMMENDATIONS
+================================================================================
+
+ MAIN RECOMMENDATION: Use PARALLEL MODE
+  Parallel processing is significantly faster (1.67x)
+  and maintains the same reliability in results.
+
+================================================================================
+                               CONCLUSIONS
+================================================================================
+
+1. Both modes produced consistent results
+2. Parallelism offers performance advantages
+3. Reliable processing without errors
+
+================================================================================
+                            END OF REPORT
+================================================================================

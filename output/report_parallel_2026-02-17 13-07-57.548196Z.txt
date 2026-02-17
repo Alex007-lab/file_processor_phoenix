@@ -1,0 +1,72 @@
+================================================================================
+                    FILE PROCESSING REPORT
+================================================================================
+
+Generation date: 2026-02-17 13:07:57.548329Z
+Processed directory: parallel processing
+Processing mode: Parallel (using 6 workers - one per file)
+
+--------------------------------------------------------------------------------
+PARALLELISM CONFIGURATION
+--------------------------------------------------------------------------------
+Workers used: 6
+Files processed: 6
+Workers/files ratio: 6/6
+
+--------------------------------------------------------------------------------
+SUMMARY
+--------------------------------------------------------------------------------
+Total files processed: 6
+  - CSV files: 2
+  - JSON files: 2
+  - LOG files: 2
+
+Total processing time: 2 ms
+Successful files: 6
+Files with errors: 0
+Success rate: 100.0%
+
+
+--------------------------------------------------------------------------------
+CSV FILE METRICS
+--------------------------------------------------------------------------------
+
+[ventas_enero.csv]
+  - Valid records: 30
+  - Unique products: 15
+  - Total sales: $24399.93
+
+[ventas_febrero.csv]
+  - Valid records: 30
+  - Unique products: 16
+  - Total sales: $26721.37
+
+--------------------------------------------------------------------------------
+JSON FILE METRICS
+--------------------------------------------------------------------------------
+
+[sesiones.json]
+  - Total users: 8
+  - Active users: 7
+  - Total sessions: 12
+
+[usuarios.json]
+  - Total users: 10
+  - Active users: 7
+  - Total sessions: 10
+
+--------------------------------------------------------------------------------
+LOG FILE METRICS
+--------------------------------------------------------------------------------
+
+[aplicacion.log]
+  - Total lines: 71
+  - Distribution: DEBUG(10), INFO(47), WARN(6), ERROR(8), FATAL(0)
+
+[sistema.log]
+  - Total lines: 72
+  - Distribution: DEBUG(6), INFO(49), WARN(7), ERROR(9), FATAL(1)
+
+================================================================================
+                           END OF REPORT
+================================================================================

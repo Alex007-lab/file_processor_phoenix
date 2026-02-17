@@ -1,49 +1,253 @@
 <Layouts.app flash={@flash}>
   <.header>
     Historial de Ejecuciones
+    <:subtitle>
+      <%= @stats.total %> ejecuciones totales · 
+      Promedio: <%= @stats.avg_time %> ms
+    </:subtitle>
+      <:actions>
+        <.button navigate={~p"/processing"}>
+          <.icon name="hero-plus" /> Nuevo procesamiento
+        </.button>
+        
+        <%= if @stats.total > 0 do %>
+          <.link
+            href={~p"/executions/delete_all"}
+            method="delete"
+            data-confirm="¿Eliminar TODO el historial? Esta acción no se puede deshacer."
+          >
+            <.button>
+              <.icon name="hero-trash" /> Limpiar historial
+            </.button>
+          </.link>
+        <% end %>
+      </:actions>
   </.header>
 
-  <.table id="executions" rows={@executions}>
-    <:col :let={execution} label="Fecha">
-      {execution.timestamp}
-    </:col>
+  <!-- Dashboard de estadísticas -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+      <div class="text-sm text-blue-600 dark:text-blue-400 font-medium">TOTAL</div>
+      <div class="text-2xl font-bold text-blue-900 dark:text-blue-200"><%= @stats.total %></div>
+    </div>
+    
+    <div class="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+      <div class="text-sm text-blue-600 dark:text-blue-400 font-medium">📋 Secuencial</div>
+      <div class="text-2xl font-bold text-blue-900 dark:text-blue-200"><%= @stats.sequential %></div>
+    </div>
+    
+    <div class="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
+      <div class="text-sm text-green-600 dark:text-green-400 font-medium">⚡ Paralelo</div>
+      <div class="text-2xl font-bold text-green-900 dark:text-green-200"><%= @stats.parallel %></div>
+    </div>
+    
+    <div class="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+      <div class="text-sm text-purple-600 dark:text-purple-400 font-medium">📊 Benchmark</div>
+      <div class="text-2xl font-bold text-purple-900 dark:text-purple-200"><%= @stats.benchmark %></div>
+    </div>
+  </div>
 
-    <:col :let={execution} label="Archivos">
-      {execution.files}
-    </:col>
+  <!-- Filtros mejorados -->
+  <div class="flex flex-wrap items-center gap-2 mb-6">
+    <span class="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">Filtrar por:</span>
+    
+    <.link 
+      navigate={~p"/executions?mode=all"}
+      class={if @current_filter == "all" || @current_filter == nil do
+        "px-4 py-2 rounded-full text-sm font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
+      else
+        "px-4 py-2 rounded-full text-sm font-medium transition-colors bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+      end}
+    >
+      Todos
+    </.link>
+    
+    <.link 
+      navigate={~p"/executions?mode=sequential"}
+      class={if @current_filter == "sequential" do
+        "px-4 py-2 rounded-full text-sm font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
+      else
+        "px-4 py-2 rounded-full text-sm font-medium transition-colors bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+      end}
+    >
+      📋 Secuencial
+    </.link>
+    
+    <.link 
+      navigate={~p"/executions?mode=parallel"}
+      class={if @current_filter == "parallel" do
+        "px-4 py-2 rounded-full text-sm font-medium transition-colors bg-green-600 text-white hover:bg-green-700"
+      else
+        "px-4 py-2 rounded-full text-sm font-medium transition-colors bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+      end}
+    >
+      ⚡ Paralelo
+    </.link>
+    
+    <.link 
+      navigate={~p"/executions?mode=benchmark"}
+      class={if @current_filter == "benchmark" do
+        "px-4 py-2 rounded-full text-sm font-medium transition-colors bg-purple-600 text-white hover:bg-purple-700"
+      else
+        "px-4 py-2 rounded-full text-sm font-medium transition-colors bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+      end}
+    >
+      📊 Benchmark
+    </.link>
+    
+    <span class="flex-1"></span>
+    
+    <.link 
+      navigate={~p"/executions?mode=today"}
+      class="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+    >
+      Hoy
+    </.link>
+    
+    <.link 
+      navigate={~p"/executions?mode=week"}
+      class="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+    >
+      Esta semana
+    </.link>
+  </div>
 
-    <:col :let={execution} label="Modo">
-      {execution.mode}
-    </:col>
+  <!-- Tabla de ejecuciones -->
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <%= if Enum.empty?(@executions) do %>
+      <div class="text-center py-16">
+        <div class="text-6xl mb-4">📭</div>
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No hay ejecuciones</h3>
+        <p class="text-gray-500 dark:text-gray-400 mb-6">
+          <%= case @current_filter do %>
+            <% "sequential" -> %>No hay ejecuciones en modo secuencial
+            <% "parallel" -> %>No hay ejecuciones en modo paralelo
+            <% "benchmark" -> %>No hay ejecuciones en modo benchmark
+            <% _ -> %>Comienza procesando algunos archivos
+          <% end %>
+        </p>
+        <.button navigate={~p"/processing"}>
+          <.icon name="hero-plus" /> Procesar archivos
+        </.button>
+      </div>
+    <% else %>
+      <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead class="bg-gray-50 dark:bg-gray-900">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Fecha</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Archivos</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Modo</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tiempo</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Estado</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acciones</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          <%= for execution <- @executions do %>
+            <% files_list = String.split(execution.files, ", ") %>
+            <% has_errors? = String.contains?(execution.result, "❌") or String.contains?(execution.result, "Error") %>
+            
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+              <!-- Fecha -->
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900 dark:text-white">
+                  <%= FileProcessorWeb.ExecutionController.format_date(execution.timestamp) %>
+                </div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">
+                  <%= FileProcessorWeb.ExecutionController.format_time(execution.timestamp) %>
+                </div>
+              </td>
 
-    <:col :let={execution} label="Tiempo Total">
-      {execution.total_time} ms
-    </:col>
+              <!-- Archivos -->
+              <td class="px-6 py-4">
+                <div class="flex items-center gap-1 mb-1">
+                  <span class="text-sm font-medium text-gray-900 dark:text-white">
+                    <%= length(files_list) %>
+                  </span>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">archivos</span>
+                </div>
+                <div class="flex flex-wrap gap-1">
+                  <%= for file <- Enum.take(files_list, 3) do %>
+                    <% file_title = file %>
+                    <span class="text-lg" title={file_title}>
+                      <%= FileProcessorWeb.ExecutionController.file_icon(Path.extname(file)) %>
+                    </span>
+                  <% end %>
+                  <%= if length(files_list) > 3 do %>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">+<%= length(files_list) - 3 %></span>
+                  <% end %>
+                </div>
+              </td>
 
-    <:col label="Resultado">
-      Reporte generado
-    </:col>
+              <!-- Modo -->
+              <td class="px-6 py-4 whitespace-nowrap">
+                <% mode_color = FileProcessorWeb.ExecutionController.mode_badge_color(execution.mode) %>
+                <span class={mode_color <> " px-2 py-1 rounded-full text-xs font-medium"}>
+                  <%= FileProcessorWeb.ExecutionController.mode_display_name(execution.mode) %>
+                </span>
+              </td>
 
-    <:action :let={execution}>
-      <.link navigate={~p"/executions/#{execution.id}"}>
-        Ver
-      </.link>
-    </:action>
+              <!-- Tiempo -->
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-mono text-gray-900 dark:text-white">
+                  <%= execution.total_time %> ms
+                </div>
+                <%= if execution.mode == "benchmark" do %>
+                  <% benchmark_data = FileProcessorWeb.ExecutionController.extract_benchmark_data(execution.result) %>
+                  <%= if benchmark_data do %>
+                    <div class="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                      <%= benchmark_data.improvement %>x mejora
+                    </div>
+                  <% end %>
+                <% end %>
+              </td>
 
-    <:action :let={execution}>
-      <.link href={~p"/executions/#{execution.id}/download"}>
-        Descargar
-      </.link>
-    </:action>
+              <!-- Estado -->
+              <td class="px-6 py-4 whitespace-nowrap">
+                <% status_class = if has_errors? do
+                  "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+                else
+                  "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                end %>
+                <span class={status_class <> " px-2 py-1 rounded-full text-xs font-medium"}>
+                  <%= if has_errors?, do: "⚠️ Parcial", else: "✅ Completado" %>
+                </span>
+              </td>
 
-    <:action :let={execution}>
-      <.link
-        href={~p"/executions/#{execution.id}"}
-        method="delete"
-        data-confirm="¿Seguro que deseas borrar esta ejecución?"
-      >
-        Borrar
-      </.link>
-    </:action>
-  </.table>
+              <!-- Acciones -->
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <div class="flex items-center space-x-3">
+                  <.link
+                    navigate={~p"/executions/#{execution.id}"}
+                    class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                    title="Ver detalles"
+                  >
+                    <.icon name="hero-eye" class="w-5 h-5" />
+                  </.link>
+
+                  <.link
+                    href={~p"/executions/#{execution.id}/download"}
+                    class="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 transition-colors"
+                    title="Descargar reporte"
+                  >
+                    <.icon name="hero-arrow-down-tray" class="w-5 h-5" />
+                  </.link>
+
+                  <.link
+                    href={~p"/executions/#{execution.id}"}
+                    method="delete"
+                    data-confirm="¿Eliminar esta ejecución?"
+                    class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                    title="Eliminar"
+                  >
+                    <.icon name="hero-trash" class="w-5 h-5" />
+                  </.link>
+                </div>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+  </div>
 </Layouts.app>
