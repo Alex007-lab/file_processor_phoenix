@@ -304,8 +304,10 @@ defmodule ProcesadorArchivos do
       :timer.tc(fn ->
         # Start Coordinator with files and silent configuration
         ProcesadorArchivos.Coordinator.start(files, %{
-          timeout: 5000,    # 5 second timeout per worker
-          verbose: false    # Silent mode (no console output)
+          # 5 second timeout per worker
+          timeout: 5000,
+          # Silent mode (no console output)
+          verbose: false
         })
       end)
 
@@ -327,7 +329,8 @@ defmodule ProcesadorArchivos do
         total_time_ms,
         "parallel processing",
         :parallel,
-        length(files)  # Pass number of files as worker count info
+        # Pass number of files as worker count info
+        length(files)
       )
 
     # Display report location
@@ -532,7 +535,8 @@ defmodule ProcesadorArchivos do
           improvement: improvement,
           percent_faster: percent_faster,
           files_count: length(files),
-          benchmark_report: report_file
+          benchmark_report: report_file.file,
+          benchmark_content: report_file.content
         }
 
       {:error, reason} ->
@@ -592,7 +596,8 @@ defmodule ProcesadorArchivos do
     # Ensure output directory exists
     File.mkdir_p!("output")
 
-    workers_used = files_count  # One worker per file
+    # One worker per file
+    workers_used = files_count
 
     # Create timestamp for unique filename
     timestamp =
@@ -693,13 +698,9 @@ defmodule ProcesadorArchivos do
     ================================================================================
 
     #{if improvement >= 1.5 do
-      " MAIN RECOMMENDATION: Use PARALLEL MODE\n" <>
-      "  Parallel processing is significantly faster (#{improvement}x)\n" <>
-      "  and maintains the same reliability in results."
+      " MAIN RECOMMENDATION: Use PARALLEL MODE\n" <> "  Parallel processing is significantly faster (#{improvement}x)\n" <> "  and maintains the same reliability in results."
     else
-      " MAIN RECOMMENDATION: Use SEQUENTIAL MODE\n" <>
-      "  Parallel mode improvement is minimal (#{improvement}x)\n" <>
-      "  and doesn't justify process management overhead."
+      " MAIN RECOMMENDATION: Use SEQUENTIAL MODE\n" <> "  Parallel mode improvement is minimal (#{improvement}x)\n" <> "  and doesn't justify process management overhead."
     end}
 
     ================================================================================
@@ -723,7 +724,10 @@ defmodule ProcesadorArchivos do
     IO.puts("Benchmark report saved to: #{report_file}")
     IO.puts(String.duplicate("=", 50))
 
-    report_file
+    %{
+      file: report_file,
+      content: content
+    }
   end
 
   # ============================================================================
@@ -1324,43 +1328,23 @@ defmodule ProcesadorArchivos do
     ================================================================================
 
     #{if Map.has_key?(resultado, :lineas_procesadas) do
-      "Total lines in file: #{resultado.total_lineas}\n" <>
-      "Successfully processed lines: #{resultado.lineas_procesadas}\n" <>
-      "Lines with errors: #{resultado.lineas_con_error}\n" <>
-      "Success rate: #{detalles.porcentaje_exito}%\n" <>
-      "Error rate: #{detalles.porcentaje_error}%"
+      "Total lines in file: #{resultado.total_lineas}\n" <> "Successfully processed lines: #{resultado.lineas_procesadas}\n" <> "Lines with errors: #{resultado.lineas_con_error}\n" <> "Success rate: #{detalles.porcentaje_exito}%\n" <> "Error rate: #{detalles.porcentaje_error}%"
     else
       "No line-by-line processing statistics available"
     end}
 
     #{if Map.has_key?(resultado, :errores) and length(resultado.errores) > 0 do
-      "\n===============================================================================\n" <>
-      "                    ERROR DETAILS\n" <>
-      "===============================================================================\n\n" <>
-      Enum.map_join(resultado.errores, "\n", fn {linea, error, contenido} ->
-        "Line #{linea}: #{error}\n" <>
-        "Content: #{contenido}\n" <>
-        String.duplicate("-", 80)
-      end)
+      "\n===============================================================================\n" <> "                    ERROR DETAILS\n" <> "===============================================================================\n\n" <> Enum.map_join(resultado.errores, "\n", fn {linea, error, contenido} -> "Line #{linea}: #{error}\n" <> "Content: #{contenido}\n" <> String.duplicate("-", 80) end)
     else
       if resultado.estado == :completo do
-        "\n===============================================================================\n" <>
-        "                    NO ERRORS DETECTED\n" <>
-        "===============================================================================\n" <>
-        "All lines were processed successfully. File is valid."
+        "\n===============================================================================\n" <> "                    NO ERRORS DETECTED\n" <> "===============================================================================\n" <> "All lines were processed successfully. File is valid."
       else
-        "\n===============================================================================\n" <>
-        "                    UNKNOWN ERROR\n" <>
-        "===============================================================================\n" <>
-        "An error occurred but no specific error details are available."
+        "\n===============================================================================\n" <> "                    UNKNOWN ERROR\n" <> "===============================================================================\n" <> "An error occurred but no specific error details are available."
       end
     end}
 
     #{if Map.has_key?(detalles, :recomendacion) do
-      "\n===============================================================================\n" <>
-      "                    RECOMMENDATIONS\n" <>
-      "===============================================================================\n" <>
-      "#{detalles.recomendacion}"
+      "\n===============================================================================\n" <> "                    RECOMMENDATIONS\n" <> "===============================================================================\n" <> "#{detalles.recomendacion}"
     else
       ""
     end}
@@ -1390,23 +1374,13 @@ defmodule ProcesadorArchivos do
     ================================================================================
 
     #{if resultado.estado == :completo do
-      "JSON Structure: VALID\n" <>
-      "Fields detected: #{Enum.join(detalles.campos_presentes, ", ")}\n" <>
-      "Total users: #{detalles.total_usuarios}\n" <>
-      "Active users: #{detalles.usuarios_activos}\n" <>
-      "Total sessions: #{detalles.total_sesiones}"
+      "JSON Structure: VALID\n" <> "Fields detected: #{Enum.join(detalles.campos_presentes, ", ")}\n" <> "Total users: #{detalles.total_usuarios}\n" <> "Active users: #{detalles.usuarios_activos}\n" <> "Total sessions: #{detalles.total_sesiones}"
     else
-      "JSON Structure: INVALID\n" <>
-      "Error type: #{detalles.tipo_error}\n" <>
-      "Error message: #{detalles.mensaje_error}\n" <>
-      "Position: #{detalles.posicion}"
+      "JSON Structure: INVALID\n" <> "Error type: #{detalles.tipo_error}\n" <> "Error message: #{detalles.mensaje_error}\n" <> "Position: #{detalles.posicion}"
     end}
 
     #{if Map.has_key?(detalles, :recomendacion) do
-      "\n===============================================================================\n" <>
-      "                    RECOMMENDATIONS\n" <>
-      "===============================================================================\n" <>
-      "#{detalles.recomendacion}"
+      "\n===============================================================================\n" <> "                    RECOMMENDATIONS\n" <> "===============================================================================\n" <> "#{detalles.recomendacion}"
     else
       ""
     end}
@@ -1450,30 +1424,17 @@ defmodule ProcesadorArchivos do
       - FATAL: #{distribucion.fatal || 0}
 
     #{if Map.has_key?(resultado, :errores) and length(resultado.errores) > 0 do
-      "\n===============================================================================\n" <>
-      "                    INVALID LINES DETAILS\n" <>
-      "===============================================================================\n\n" <>
-      Enum.map_join(resultado.errores, "\n", fn {linea, error, contenido} ->
-        "Line #{linea}: #{error}\n" <>
-        "Content: #{contenido}\n" <>
-        String.duplicate("-", 80)
-      end)
+      "\n===============================================================================\n" <> "                    INVALID LINES DETAILS\n" <> "===============================================================================\n\n" <> Enum.map_join(resultado.errores, "\n", fn {linea, error, contenido} -> "Line #{linea}: #{error}\n" <> "Content: #{contenido}\n" <> String.duplicate("-", 80) end)
     else
       if resultado.estado == :completo do
-        "\n===============================================================================\n" <>
-        "                    ALL LINES VALID\n" <>
-        "===============================================================================\n" <>
-        "All log lines follow the expected format."
+        "\n===============================================================================\n" <> "                    ALL LINES VALID\n" <> "===============================================================================\n" <> "All log lines follow the expected format."
       else
         ""
       end
     end}
 
     #{if Map.has_key?(detalles, :recomendacion) do
-      "\n===============================================================================\n" <>
-      "                    RECOMMENDATIONS\n" <>
-      "===============================================================================\n" <>
-      "#{detalles.recomendacion}"
+      "\n===============================================================================\n" <> "                    RECOMMENDATIONS\n" <> "===============================================================================\n" <> "#{detalles.recomendacion}"
     else
       ""
     end}

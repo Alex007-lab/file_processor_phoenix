@@ -1,0 +1,86 @@
+
+================================================================================
+                        BENCHMARK CONFIGURATION
+================================================================================
+
+PARALLELISM CONFIGURATION:
+- Total files: 3
+- Workers used: 3 (one per file)
+- System cores: 22
+- Workers/files ratio: 3/3
+
+================================================================================
+                      BENCHMARK REPORT - COMPARATIVE
+================================================================================
+
+Generation date: 2026-02-20_17-45-47.007383Z
+Processed folder: /tmp/benchmark_2026-02-20 17-45-47.003948Z
+Total files: 3
+
+================================================================================
+                          PERFORMANCE RESULTS
+================================================================================
+
+EXECUTION TIMES:
+- Sequential Mode: 0 milliseconds
+- Parallel Mode:   0 milliseconds
+- Improvement factor: 0.0x faster
+- Improvement percentage: 0.0%
+
+================================================================================
+                        PROCESSING STATISTICS
+================================================================================
+
+SEQUENTIAL MODE:
+- Total files: 3
+- Successful: 3
+- With errors: 0
+- Success rate: 100.0%
+
+Distribution by type:
+  - CSV:  2 files
+  - JSON: 1 files
+  - LOG:  0 files
+
+PARALLEL MODE:
+- Total files: 3
+- Successful: 3
+- With errors: 0
+- Success rate: 100.0%
+
+Distribution by type:
+  - CSV:  2 files
+  - JSON: 1 files
+  - LOG:  0 files
+
+================================================================================
+                            COMPARATIVE ANALYSIS
+================================================================================
+
+PERFORMANCE DIFFERENCE:
+- Time saved: 0 ms
+- Relative efficiency: 0.0x
+
+RESULTS DIFFERENCE:
+- Additional successful files in parallel: 0
+- Error difference: 0
+
+================================================================================
+                          RECOMMENDATIONS
+================================================================================
+
+ MAIN RECOMMENDATION: Use SEQUENTIAL MODE
+  Parallel mode improvement is minimal (0.0x)
+  and doesn't justify process management overhead.
+
+================================================================================
+                               CONCLUSIONS
+================================================================================
+
+1. Both modes produced consistent results
+2. Parallelism overhead outweighs its benefits
+3. Reliable processing without errors
+
+================================================================================
+                            END OF REPORT
+================================================================================

@@ -40,48 +40,39 @@ defmodule ProcesadorArchivos.CoreAdapter do
     result = ProcesadorArchivos.benchmark(dir, %{})
 
     cond do
-      # Caso éxito - resultado es mapa con las claves esperadas
-      is_map(result) and Map.has_key?(result, :sequential_ms) ->
-        seq = Map.get(result, :sequential_ms, 0)
-        par = Map.get(result, :parallel_ms, 0)
-        count = Map.get(result, :files_count, 0)
+      is_map(result) and Map.has_key?(result, :benchmark_report) ->
+        case File.read(result.benchmark_report) do
+          {:ok, full_content} ->
+            {:ok,
+             %{
+               summary:
+                 extract_benchmark_summary(
+                   {:ok,
+                    %{
+                      sequential_ms: result.sequential_ms,
+                      parallel_ms: result.parallel_ms,
+                      improvement: result.improvement,
+                      time_saved: result.sequential_ms - result.parallel_ms,
+                      percent_faster: result.percent_faster
+                    }}
+                 ),
+               full_report: full_content,
+               sequential_ms: result.sequential_ms,
+               parallel_ms: result.parallel_ms,
+               improvement: result.improvement,
+               percent_faster: result.percent_faster,
+               time_saved: result.sequential_ms - result.parallel_ms
+             }}
 
-        # Calcular mejora correctamente
-        improvement = if par > 0, do: seq / par, else: 1.0
+          _ ->
+            {:error, "No se pudo leer el archivo de benchmark generado"}
+        end
 
-        # Porcentaje de mejora
-        percent = if seq > 0, do: (seq - par) / seq * 100, else: 0.0
+      is_map(result) ->
+        {:error, "Resultado inesperado del benchmark"}
 
-        # Tiempo ahorrado
-        time_saved = seq - par
-
-        # Formatear para mostrar
-        percent_faster = Float.round(percent, 1)
-        improvement_rounded = Float.round(improvement, 2)
-
-        {:ok, %{
-          type: "benchmark",
-          sequential_ms: seq,
-          parallel_ms: par,
-          improvement: improvement_rounded,
-          files_count: count,
-          percent_faster: percent_faster,
-          time_saved: time_saved,
-          details: result
-        }}
-
-      # Caso error - verificar si es un mapa con :error o una tupla
-      is_map(result) and Map.has_key?(result, :error) ->
-        error_msg = Map.get(result, :error, "Error desconocido")
-        {:error, "Error en benchmark: #{error_msg}"}
-
-      # Caso tupla de error
-      match?({:error, _}, result) ->
-        {:error, "Error en benchmark: #{inspect(result)}"}
-
-      # Otros casos
       true ->
-        {:ok, %{type: "benchmark", result: inspect(result)}}
+        {:error, "Error en benchmark"}
     end
   end
 
@@ -123,11 +114,12 @@ defmodule ProcesadorArchivos.CoreAdapter do
         percent = Map.get(data, :percent_faster, 0)
 
         # Determinar qué modo es más rápido
-        faster = cond do
-          time_saved > 0 -> "⚡ Paralelo es más rápido"
-          time_saved < 0 -> "📋 Secuencial es más rápido"
-          true -> "⚖️ Mismo rendimiento"
-        end
+        faster =
+          cond do
+            time_saved > 0 -> "⚡ Paralelo es más rápido"
+            time_saved < 0 -> "📋 Secuencial es más rápido"
+            true -> "⚖️ Mismo rendimiento"
+          end
 
         """
         📊 BENCHMARK RESULTS

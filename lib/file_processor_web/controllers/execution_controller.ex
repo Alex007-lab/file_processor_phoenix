@@ -23,21 +23,40 @@ defmodule FileProcessorWeb.ExecutionController do
 
   def show(conn, %{"id" => id}) do
     execution = Executions.get_execution!(id)
-    render(conn, :show, execution: execution)
+
+    benchmark_data =
+      if execution.mode == "benchmark" do
+        extract_benchmark_data(execution.result)
+      else
+        nil
+      end
+
+    render(conn, :show,
+      execution: execution,
+      benchmark_data: benchmark_data
+    )
   end
 
   def download(conn, %{"id" => id}) do
     execution = Executions.get_execution!(id)
 
-    # Generar nombre de archivo basado en el modo y fecha
-    date = Calendar.strftime(execution.timestamp, "%Y%m%d_%H%M%S")
-    filename = "#{execution.mode}_report_#{date}.txt"
+    file_path = execution.result
 
-    # El resultado YA TIENE el formato del core, solo descargarlo
-    send_download(conn, {:binary, execution.result},
-      filename: filename,
-      content_type: "text/plain"
-    )
+    if file_path && File.exists?(file_path) do
+      conn
+      |> put_resp_content_type("text/plain")
+      |> put_resp_header(
+        "content-disposition",
+        "attachment; filename=#{Path.basename(file_path)}"
+      )
+      |> send_file(200, file_path)
+    else
+      # Si no es archivo físico, descargar como texto (compatibilidad con ejecuciones viejas)
+      send_download(conn, {:binary, execution.result},
+        filename: "#{execution.mode}_report.txt",
+        content_type: "text/plain"
+      )
+    end
   end
 
   def delete(conn, %{"id" => id}) do
@@ -109,37 +128,40 @@ defmodule FileProcessorWeb.ExecutionController do
     # Para el formato del reporte descargable
     pattern4 = ~r/\[#{Regex.escape(file)}\] - [A-Z]+\n═+[^\n]+\n(?:• [^\n]+\n)+/
 
-    result = cond do
-      # Buscar en formato secuencial (patrón 1)
-      match = Regex.run(pattern1, report) ->
-        match |> hd() |> format_sequential_match()
+    result =
+      cond do
+        # Buscar en formato secuencial (patrón 1)
+        match = Regex.run(pattern1, report) ->
+          match |> hd() |> format_sequential_match()
 
-      # Buscar en formato secuencial (patrón 2)
-      match = Regex.run(pattern2, report) ->
-        match |> hd() |> String.trim()
+        # Buscar en formato secuencial (patrón 2)
+        match = Regex.run(pattern2, report) ->
+          match |> hd() |> String.trim()
 
-      # Buscar en formato paralelo
-      match = Regex.run(pattern3, report) ->
-        match |> hd() |> format_parallel_match()
+        # Buscar en formato paralelo
+        match = Regex.run(pattern3, report) ->
+          match |> hd() |> format_parallel_match()
 
-      # Buscar en formato de reporte descargable
-      match = Regex.run(pattern4, report) ->
-        match |> hd() |> String.trim()
+        # Buscar en formato de reporte descargable
+        match = Regex.run(pattern4, report) ->
+          match |> hd() |> String.trim()
 
-      true ->
-        # Último intento: buscar cualquier mención del archivo
-        lines = String.split(report, "\n")
-        relevant_lines = Enum.filter(lines, fn line ->
-          String.contains?(line, file) and
-          not String.contains?(line, "No se encontraron resultados")
-        end)
+        true ->
+          # Último intento: buscar cualquier mención del archivo
+          lines = String.split(report, "\n")
 
-        if Enum.empty?(relevant_lines) do
-          "No se encontraron resultados para este archivo"
-        else
-          Enum.join(relevant_lines, "\n")
-        end
-    end
+          relevant_lines =
+            Enum.filter(lines, fn line ->
+              String.contains?(line, file) and
+                not String.contains?(line, "No se encontraron resultados")
+            end)
+
+          if Enum.empty?(relevant_lines) do
+            "No se encontraron resultados para este archivo"
+          else
+            Enum.join(relevant_lines, "\n")
+          end
+      end
 
     # Asegurar que siempre retornamos un string
     if is_binary(result), do: result, else: inspect(result)
@@ -164,27 +186,47 @@ defmodule FileProcessorWeb.ExecutionController do
   @doc """
   Extrae los datos de benchmark del reporte y los devuelve como mapa estructurado.
   """
-  def extract_benchmark_data(report) do
-    sequential = extract_value(report, ~r/Secuencial:?\s*(\d+)\s*ms/i)
-    parallel = extract_value(report, ~r/Paralelo:?\s*(\d+)\s*ms/i)
+  def extract_benchmark_data(report) when is_binary(report) do
+    sequential =
+      extract_value(report, ~r/Sequential Mode:\s*(\d+)/i)
 
-    if sequential && parallel do
-      # Extraer valores del reporte
-      improvement = extract_value(report, ~r/Mejora:?\s*([\d.]+)x/i) || sequential / parallel
-      time_saved = extract_value(report, ~r/Diferencia:?\s*(\d+)\s*ms/i) || sequential - parallel
-      percent = extract_value(report, ~r/Eficiencia:?\s*([\d.]+)%/i) || (1 - parallel / sequential) * 100
+    parallel =
+      extract_value(report, ~r/Parallel Mode:\s*(\d+)/i)
 
-      # Determinar dirección de la mejora
-      faster_text = if sequential > parallel, do: "⚡ Paralelo más rápido", else: "📋 Secuencial más rápido"
+    case {sequential, parallel} do
+      {seq, par} when is_integer(seq) and is_integer(par) ->
+        time_saved = seq - par
 
-      %{
-        sequential_ms: sequential,
-        parallel_ms: parallel,
-        improvement: Float.round(improvement, 2),
-        time_saved: abs(time_saved),
-        percent_faster: Float.round(abs(percent), 1),
-        faster_mode: faster_text
-      }
+        percent =
+          if seq > 0 do
+            (seq - par) / seq * 100
+          else
+            0.0
+          end
+
+        improvement =
+          if par > 0 do
+            seq / par
+          else
+            0.0
+          end
+
+        %{
+          sequential_ms: seq,
+          parallel_ms: par,
+          improvement: Float.round(improvement, 2),
+          time_saved: abs(time_saved),
+          percent_faster: Float.round(abs(percent), 1),
+          faster_mode:
+            cond do
+              time_saved > 0 -> "⚡ Paralelo más rápido"
+              time_saved < 0 -> "📋 Secuencial más rápido"
+              true -> "⚖️ Igual rendimiento"
+            end
+        }
+
+      _ ->
+        nil
     end
   end
 
@@ -293,6 +335,7 @@ defmodule FileProcessorWeb.ExecutionController do
 
       :log ->
         niveles = Map.get(detalles, :distribucion_niveles, %{})
+
         """
         [#{archivo}] - LOG
         ═══════════════════════════════
@@ -335,7 +378,13 @@ defmodule FileProcessorWeb.ExecutionController do
         if String.contains?(value, "."),
           do: String.to_float(value),
           else: String.to_integer(value)
-      _ -> nil
+
+      _ ->
+        nil
     end
   end
-end 
+
+  defp safe_float(value) when is_float(value), do: value
+  defp safe_float(value) when is_integer(value), do: value * 1.0
+  defp safe_float(_), do: 0.0
+end

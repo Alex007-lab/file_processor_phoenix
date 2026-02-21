@@ -70,13 +70,15 @@ defmodule FileProcessorWeb.ProcessingController do
         "parallel" ->
           case CoreAdapter.process_parallel(saved_paths) do
             %{results: results, total_time: time, successes: ok, errors: err} ->
-              {:ok, %{
-                type: "parallel",
-                results: results,
-                total_time: time,
-                successes: ok,
-                errors: err
-              }}
+              {:ok,
+               %{
+                 type: "parallel",
+                 results: results,
+                 total_time: time,
+                 successes: ok,
+                 errors: err
+               }}
+
             other ->
               {:ok, %{type: "parallel", result: other}}
           end
@@ -97,25 +99,32 @@ defmodule FileProcessorWeb.ProcessingController do
 
     formatted_result = build_report(result_data, mode, total_time)
 
-    save_execution(conn, files_string, mode, total_time, formatted_result)
+    full_result =
+      case {mode, result_data} do
+        {"benchmark", {:ok, %{full_report: full}}} -> full
+        _ -> formatted_result
+      end
+
+    save_execution(conn, files_string, mode, total_time, formatted_result, full_result)
   end
 
   # ==========================================
   # GUARDADO EN BASE DE DATOS
   # ==========================================
-  defp save_execution(conn, files_string, mode, total_time, formatted_result) do
+  defp save_execution(conn, files_string, mode, total_time, formatted_result, full_result) do
     # Determinar el estado basado en el resultado
-    status = if String.contains?(formatted_result, "❌") or
-                String.contains?(formatted_result, "Error"),
-              do: "partial",
-              else: "success"
+    status =
+      if String.contains?(formatted_result, "❌") or
+           String.contains?(formatted_result, "Error"),
+         do: "partial",
+         else: "success"
 
     case Executions.create_execution(%{
            timestamp: DateTime.utc_now(),
            files: files_string,
            mode: mode,
            total_time: total_time,
-           result: formatted_result,
+           result: full_result,
            status: status
          }) do
       {:ok, execution} ->
@@ -137,7 +146,10 @@ defmodule FileProcessorWeb.ProcessingController do
   defp build_report({:ok, data}, mode, total_time) do
     case mode do
       "benchmark" ->
-        CoreAdapter.extract_benchmark_summary({:ok, data})
+        case data do
+          %{summary: summary} -> summary
+          _ -> CoreAdapter.extract_benchmark_summary({:ok, data})
+        end
 
       "parallel" when is_map(data) ->
         """
@@ -207,11 +219,13 @@ defmodule FileProcessorWeb.ProcessingController do
           • Estado: #{estado}
           #{format_sequential_detalles(full_result)}
           """
+
         other ->
           "  • #{inspect(other)}"
       end
     end)
   end
+
   defp extract_sequential_results(_), do: "  No hay resultados detallados"
 
   defp extract_parallel_results(results) when is_list(results) do
@@ -224,17 +238,20 @@ defmodule FileProcessorWeb.ProcessingController do
           • Estado: #{status}
           #{format_parallel_metrics(full_result)}
           """
+
         other ->
           "  • #{inspect(other)}"
       end
     end)
   end
+
   defp extract_parallel_results(_), do: ""
 
   defp format_sequential_detalles(result) do
     case Map.get(result, :tipo_archivo) do
       :csv ->
         detalles = Map.get(result, :detalles, %{})
+
         """
         • Registros válidos: #{Map.get(detalles, :lineas_validas, 0)}
         • Registros inválidos: #{Map.get(detalles, :lineas_invalidas, 0)}
@@ -244,6 +261,7 @@ defmodule FileProcessorWeb.ProcessingController do
 
       :json ->
         detalles = Map.get(result, :detalles, %{})
+
         """
         • Total usuarios: #{Map.get(detalles, :total_usuarios, 0)}
         • Usuarios activos: #{Map.get(detalles, :usuarios_activos, 0)}
@@ -253,6 +271,7 @@ defmodule FileProcessorWeb.ProcessingController do
       :log ->
         detalles = Map.get(result, :detalles, %{})
         niveles = Map.get(detalles, :distribucion_niveles, %{})
+
         """
         • Líneas válidas: #{Map.get(result, :lineas_procesadas, 0)}
         • Líneas inválidas: #{Map.get(result, :lineas_con_error, 0)}
