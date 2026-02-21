@@ -10,7 +10,8 @@ defmodule FileProcessor.Executions.Execution do
     field :mode, :string
     field :total_time, :integer
     field :result, :string
-    field :status, :string  # ← NUEVO CAMPO
+    field :status, :string
+    field :report_path, :string
 
     timestamps(type: :utc_datetime)
   end
@@ -18,7 +19,7 @@ defmodule FileProcessor.Executions.Execution do
   @doc false
   def changeset(execution, attrs) do
     execution
-    |> cast(attrs, [:timestamp, :files, :mode, :total_time, :result, :status])
+    |> cast(attrs, [:timestamp, :files, :mode, :total_time, :result, :status, :report_path])
     |> validate_required([:timestamp, :files, :mode, :total_time, :result])
     |> validate_inclusion(:status, ["success", "partial", "error"])
   end

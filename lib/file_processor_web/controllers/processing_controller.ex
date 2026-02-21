@@ -99,23 +99,46 @@ defmodule FileProcessorWeb.ProcessingController do
 
     formatted_result = build_report(result_data, mode, total_time)
 
+    # Determinar contenido real del reporte
     full_result =
       case {mode, result_data} do
-        {"benchmark", {:ok, %{full_report: full}}} -> full
-        _ -> formatted_result
+        {"benchmark", {:ok, %{full_report: full}}} ->
+          full
+
+        _ ->
+          formatted_result
       end
 
-    save_execution(conn, files_string, mode, total_time, formatted_result, full_result)
+    # Crear carpeta output
+    output_dir = Path.join(File.cwd!(), "output")
+    File.mkdir_p!(output_dir)
+
+    timestamp =
+      DateTime.utc_now()
+      |> DateTime.to_iso8601()
+      |> String.replace(":", "-")
+
+    filename =
+      case mode do
+        "benchmark" -> "report_benchmark_#{timestamp}.txt"
+        "parallel" -> "report_parallel_#{timestamp}.txt"
+        _ -> "report_sequential_#{timestamp}.txt"
+      end
+
+    file_path = Path.join(output_dir, filename)
+
+    File.write!(file_path, full_result)
+
+    save_execution(conn, files_string, mode, total_time, full_result, file_path)
   end
 
   # ==========================================
   # GUARDADO EN BASE DE DATOS
   # ==========================================
-  defp save_execution(conn, files_string, mode, total_time, formatted_result, full_result) do
-    # Determinar el estado basado en el resultado
+  defp save_execution(conn, files_string, mode, total_time, result_text, file_path) do
     status =
-      if String.contains?(formatted_result, "❌") or
-           String.contains?(formatted_result, "Error"),
+      if String.contains?(result_text, "❌") or
+           String.contains?(result_text, "Error"),
          do: "partial",
          else: "success"
 
@@ -124,8 +147,9 @@ defmodule FileProcessorWeb.ProcessingController do
            files: files_string,
            mode: mode,
            total_time: total_time,
-           result: full_result,
-           status: status
+           result: result_text,
+           status: status,
+           report_path: file_path
          }) do
       {:ok, execution} ->
         redirect(conn, to: ~p"/executions/#{execution.id}")
