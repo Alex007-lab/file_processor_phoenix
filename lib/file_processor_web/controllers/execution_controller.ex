@@ -408,61 +408,43 @@ defmodule FileProcessorWeb.ExecutionController do
   # DOWNLOAD ERROR REPORT
   # ==========================================
   defp download_error_report(conn, execution) do
-    output_dir = "output"
+    execution_dir = "output/execution_#{execution.id}"
 
-    original_files =
-      execution.files
-      |> String.split(", ")
+    # Validar que la carpeta exista
+    unless File.exists?(execution_dir) do
+      conn
+      |> put_flash(:error, "No se encontró la carpeta de esta ejecución")
+      |> redirect(to: ~p"/executions/#{execution.id}")
+    else
+      error_reports =
+        Path.wildcard(Path.join(execution_dir, "*.txt"))
 
-    execution_time = DateTime.to_unix(execution.timestamp)
+      case error_reports do
+        [] ->
+          conn
+          |> put_flash(:error, "No se encontraron reportes de errores")
+          |> redirect(to: ~p"/executions/#{execution.id}")
 
-    error_reports =
-      original_files
-      |> Enum.flat_map(fn file ->
-        pattern = "report_errores_#{file}_*.txt"
-        Path.wildcard(Path.join(output_dir, pattern))
-      end)
-      |> Enum.filter(fn path ->
-        case File.stat(path) do
-          {:ok, stat} ->
-            file_time =
-              stat.mtime
-              |> NaiveDateTime.from_erl!()
-              |> DateTime.from_naive!("Etc/UTC")
-              |> DateTime.to_unix()
+        [single] ->
+          conn
+          |> put_resp_content_type("text/plain")
+          |> put_resp_header(
+            "content-disposition",
+            "attachment; filename=#{Path.basename(single)}"
+          )
+          |> send_file(200, single)
 
-            file_time >= execution_time
+        multiple ->
+          zip_path = create_error_zip(multiple, execution.id)
 
-          _ ->
-            false
-        end
-      end)
-
-    case error_reports do
-      [] ->
-        conn
-        |> put_flash(:error, "No se encontraron reportes de errores")
-        |> redirect(to: ~p"/executions/#{execution.id}")
-
-      [single] ->
-        conn
-        |> put_resp_content_type("text/plain")
-        |> put_resp_header(
-          "content-disposition",
-          "attachment; filename=#{Path.basename(single)}"
-        )
-        |> send_file(200, single)
-
-      multiple ->
-        zip_path = create_error_zip(multiple, execution.id)
-
-        conn
-        |> put_resp_content_type("application/zip")
-        |> put_resp_header(
-          "content-disposition",
-          "attachment; filename=error_reports_execution_#{execution.id}.zip"
-        )
-        |> send_file(200, zip_path)
+          conn
+          |> put_resp_content_type("application/zip")
+          |> put_resp_header(
+            "content-disposition",
+            "attachment; filename=error_reports_execution_#{execution.id}.zip"
+          )
+          |> send_file(200, zip_path)
+      end
     end
   end
 
@@ -489,7 +471,11 @@ defmodule FileProcessorWeb.ExecutionController do
   # Compresion de archivos ZIP
   # ==========================================
   defp create_error_zip(files, execution_id) do
-    zip_path = "output/error_reports_execution_#{execution_id}.zip"
+    execution_dir = "output/execution_#{execution_id}"
+
+    File.mkdir_p!(execution_dir)
+
+    zip_path = Path.join(execution_dir, "error_reports_execution_#{execution_id}.zip")
 
     entries =
       Enum.map(files, fn file ->

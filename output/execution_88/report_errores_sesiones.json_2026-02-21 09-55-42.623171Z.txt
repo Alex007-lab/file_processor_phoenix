@@ -1,33 +1,27 @@
 ================================================================================
-                  ERROR HANDLING REPORT - CSV
+                  ERROR HANDLING REPORT - JSON
 ================================================================================
 
-Generation date: 2026-02-17 12:59:08.458744Z
-File: ventas_febrero.csv
+Generation date: 2026-02-21 09:55:42.623361Z
+File: sesiones.json
 Status: completo
-File type: CSV
+File type: JSON
 
 ================================================================================
-                  PROCESSING STATISTICS
+                  PROCESSING DETAILS
 ================================================================================
 
-Total lines in file: 30
-Successfully processed lines: 30
-Lines with errors: 0
-Success rate: 100.0%
-Error rate: 0.0%
-
-
-===============================================================================
-                    NO ERRORS DETECTED
-===============================================================================
-All lines were processed successfully. File is valid.
+JSON Structure: VALID
+Fields detected: sesiones, timestamp, usuarios
+Total users: 8
+Active users: 7
+Total sessions: 12
 
 
 ===============================================================================
                     RECOMMENDATIONS
 ===============================================================================
-Archivo válido
+JSON válido y bien formado
 
 ================================================================================
                           END OF REPORT

@@ -1,0 +1,34 @@
+=====================================
+MODO: SEQUENTIAL
+=====================================
+
+⏱️  Tiempo total: 45 ms
+
+Resultados:
+[ventas_corrupto.csv] - CSV
+═══════════════════════════════
+• Estado: parcial
+• Registros válidos: 2
+• Registros inválidos: 9
+• Total líneas: 11
+• Éxito: 18.18%
+
+
+[ventas_enero.csv] - CSV
+═══════════════════════════════
+• Estado: completo
+• Registros válidos: 30
+• Registros inválidos: 0
+• Total líneas: 30
+• Éxito: 100.0%
+
+
+[ventas_febrero.csv] - CSV
+═══════════════════════════════
+• Estado: completo
+• Registros válidos: 30
+• Registros inválidos: 0
+• Total líneas: 30
+• Éxito: 100.0%
+
+

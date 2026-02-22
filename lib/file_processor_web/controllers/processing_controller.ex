@@ -61,6 +61,14 @@ defmodule FileProcessorWeb.ProcessingController do
         destination
       end)
 
+    # SNAPSHOT ANTES DEL PROCESAMIENTO
+    # ==========================================
+    output_root = Path.join(File.cwd!(), "output")
+    File.mkdir_p!(output_root)
+
+    existing_error_files =
+      Path.wildcard(Path.join(output_root, "report_errores_*"))
+
     # Procesar según el modo
     result_data =
       case mode do
@@ -102,16 +110,9 @@ defmodule FileProcessorWeb.ProcessingController do
     # Determinar contenido real del reporte
     full_result =
       case {mode, result_data} do
-        {"benchmark", {:ok, %{full_report: full}}} ->
-          full
-
-        _ ->
-          formatted_result
+        {"benchmark", {:ok, %{full_report: full}}} -> full
+        _ -> formatted_result
       end
-
-    # Crear carpeta output
-    output_dir = Path.join(File.cwd!(), "output")
-    File.mkdir_p!(output_dir)
 
     timestamp =
       DateTime.utc_now()
@@ -125,11 +126,63 @@ defmodule FileProcessorWeb.ProcessingController do
         _ -> "report_sequential_#{timestamp}.txt"
       end
 
-    file_path = Path.join(output_dir, filename)
+    file_path = Path.join(output_root, filename)
 
     File.write!(file_path, full_result)
 
-    save_execution(conn, files_string, mode, total_time, full_result, file_path)
+    # SNAPSHOT DESPUÉS DEL PROCESAMIENTO
+    # ==========================================
+    new_error_files =
+      Path.wildcard(Path.join(output_root, "report_errores_*"))
+      |> Enum.reject(&(&1 in existing_error_files))
+
+    # Guardar ejecución
+    case Executions.create_execution(%{
+           timestamp: DateTime.utc_now(),
+           files: files_string,
+           mode: mode,
+           total_time: total_time,
+           result: full_result,
+           status:
+             if String.contains?(full_result, "❌") or
+                  String.contains?(full_result, "Error") do
+               "partial"
+             else
+               "success"
+             end,
+           report_path: file_path
+         }) do
+      {:ok, execution} ->
+        execution_dir =
+          Path.join(output_root, "execution_#{execution.id}")
+
+        File.mkdir_p!(execution_dir)
+
+        # Mover reporte principal
+        new_report_path =
+          Path.join(execution_dir, Path.basename(file_path))
+
+        File.rename!(file_path, new_report_path)
+
+        # Mover los errores generados en esta ejecución
+        Enum.each(new_error_files, fn file ->
+          File.rename!(file, Path.join(execution_dir, Path.basename(file)))
+        end)
+
+        # Actualizar ruta en BD
+        Executions.update_execution(execution, %{
+          report_path: new_report_path
+        })
+
+        redirect(conn, to: ~p"/executions/#{execution.id}")
+
+      {:error, changeset} ->
+        IO.inspect(changeset.errors, label: "ERROR AL GUARDAR")
+
+        conn
+        |> put_flash(:error, "Error al guardar la ejecución")
+        |> redirect(to: ~p"/processing")
+    end
   end
 
   # ==========================================
@@ -152,6 +205,20 @@ defmodule FileProcessorWeb.ProcessingController do
            report_path: file_path
          }) do
       {:ok, execution} ->
+        execution_dir = Path.join(File.cwd!(), "output/execution_#{execution.id}")
+        File.mkdir_p!(execution_dir)
+
+        # Mover el archivo generado a su carpeta
+        new_report_path =
+          Path.join(execution_dir, Path.basename(file_path))
+
+        File.rename!(file_path, new_report_path)
+
+        # Actualizar el report_path en BD
+        Executions.update_execution(execution, %{
+          report_path: new_report_path
+        })
+
         redirect(conn, to: ~p"/executions/#{execution.id}")
 
       {:error, changeset} ->
@@ -161,6 +228,12 @@ defmodule FileProcessorWeb.ProcessingController do
         |> put_flash(:error, "Error al guardar la ejecución")
         |> redirect(to: ~p"/processing")
     end
+  end
+
+  def update_execution(execution, attrs) do
+    execution
+    |> Execution.changeset(attrs)
+    |> Repo.update()
   end
 
   # ==========================================

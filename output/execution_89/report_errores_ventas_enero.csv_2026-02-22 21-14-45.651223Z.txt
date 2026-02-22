@@ -1,40 +1,33 @@
 ================================================================================
-                  ERROR HANDLING REPORT - LOG
+                  ERROR HANDLING REPORT - CSV
 ================================================================================
 
-Generation date: 2026-02-17 12:23:48.245348Z
-File: aplicacion.log
+Generation date: 2026-02-22 21:14:45.651330Z
+File: ventas_enero.csv
 Status: completo
-File type: LOG
+File type: CSV
 
 ================================================================================
                   PROCESSING STATISTICS
 ================================================================================
 
-Total lines in file: 71
-Valid log lines: 71
-Invalid lines: 0
-Valid lines percentage: 100.0%
-Invalid lines percentage: 0.0%
-
-Log level distribution:
-  - DEBUG: 10
-  - INFO: 47
-  - WARN: 6
-  - ERROR: 8
-  - FATAL: 0
+Total lines in file: 30
+Successfully processed lines: 30
+Lines with errors: 0
+Success rate: 100.0%
+Error rate: 0.0%
 
 
 ===============================================================================
-                    ALL LINES VALID
+                    NO ERRORS DETECTED
 ===============================================================================
-All log lines follow the expected format.
+All lines were processed successfully. File is valid.
 
 
 ===============================================================================
                     RECOMMENDATIONS
 ===============================================================================
-Archivo de log válido
+Archivo válido
 
 ================================================================================
                           END OF REPORT

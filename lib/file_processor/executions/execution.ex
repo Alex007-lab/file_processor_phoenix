@@ -19,7 +19,15 @@ defmodule FileProcessor.Executions.Execution do
   @doc false
   def changeset(execution, attrs) do
     execution
-    |> cast(attrs, [:timestamp, :files, :mode, :total_time, :result, :status, :report_path])
+    |> cast(attrs, [
+      :timestamp,
+      :files,
+      :mode,
+      :total_time,
+      :result,
+      :status,
+      :report_path
+    ])
     |> validate_required([:timestamp, :files, :mode, :total_time, :result])
     |> validate_inclusion(:status, ["success", "partial", "error"])
   end
