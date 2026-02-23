@@ -389,28 +389,19 @@ defmodule FileProcessorWeb.ExecutionController do
   # DOWNLOAD NORMAL
   # ==========================================
   defp download_normal_report(conn, execution) do
-    if File.exists?(execution.result) do
-      conn
-      |> put_resp_content_type("text/plain")
-      |> put_resp_header(
-        "content-disposition",
-        "attachment; filename=#{Path.basename(execution.result)}"
-      )
-      |> send_file(200, execution.result)
-    else
-      conn
-      |> put_flash(:error, "No se encontró el archivo del reporte")
-      |> redirect(to: ~p"/executions/#{execution.id}")
-    end
+    send_download(conn, {:binary, execution.result},
+      filename: "execution_#{execution.id}.txt",
+      content_type: "text/plain"
+    )
   end
 
   # ==========================================
   # DOWNLOAD ERROR REPORT
   # ==========================================
   defp download_error_report(conn, execution) do
-    execution_dir = "output/execution_#{execution.id}"
+    execution_dir =
+      Path.expand("output/execution_#{execution.id}")
 
-    # Validar que la carpeta exista
     unless File.exists?(execution_dir) do
       conn
       |> put_flash(:error, "No se encontró la carpeta de esta ejecución")
@@ -426,24 +417,18 @@ defmodule FileProcessorWeb.ExecutionController do
           |> redirect(to: ~p"/executions/#{execution.id}")
 
         [single] ->
-          conn
-          |> put_resp_content_type("text/plain")
-          |> put_resp_header(
-            "content-disposition",
-            "attachment; filename=#{Path.basename(single)}"
+          send_download(conn, {:file, single},
+            filename: Path.basename(single),
+            content_type: "text/plain"
           )
-          |> send_file(200, single)
 
         multiple ->
           zip_path = create_error_zip(multiple, execution.id)
 
-          conn
-          |> put_resp_content_type("application/zip")
-          |> put_resp_header(
-            "content-disposition",
-            "attachment; filename=error_reports_execution_#{execution.id}.zip"
+          send_download(conn, {:file, zip_path},
+            filename: "error_reports_execution_#{execution.id}.zip",
+            content_type: "application/zip"
           )
-          |> send_file(200, zip_path)
       end
     end
   end
@@ -452,30 +437,23 @@ defmodule FileProcessorWeb.ExecutionController do
   # DOWNLOAD BENCHMARK
   # ==========================================
   defp download_benchmark(conn, execution) do
-    if File.exists?(execution.result) do
-      conn
-      |> put_resp_content_type("text/plain")
-      |> put_resp_header(
-        "content-disposition",
-        "attachment; filename=#{Path.basename(execution.result)}"
-      )
-      |> send_file(200, execution.result)
-    else
-      conn
-      |> put_flash(:error, "Benchmark antiguo sin archivo asociado")
-      |> redirect(to: ~p"/executions/#{execution.id}")
-    end
+    send_download(conn, {:binary, execution.result},
+      filename: "benchmark_#{execution.id}.txt",
+      content_type: "text/plain"
+    )
   end
 
   # ==========================================
   # Compresion de archivos ZIP
   # ==========================================
   defp create_error_zip(files, execution_id) do
-    execution_dir = "output/execution_#{execution_id}"
+    execution_dir =
+      Path.expand("output/execution_#{execution_id}")
 
     File.mkdir_p!(execution_dir)
 
-    zip_path = Path.join(execution_dir, "error_reports_execution_#{execution_id}.zip")
+    zip_path =
+      Path.join(execution_dir, "error_reports_execution_#{execution_id}.zip")
 
     entries =
       Enum.map(files, fn file ->
@@ -483,10 +461,7 @@ defmodule FileProcessorWeb.ExecutionController do
         {String.to_charlist(Path.basename(file)), content}
       end)
 
-    case :zip.create(
-           String.to_charlist(zip_path),
-           entries
-         ) do
+    case :zip.create(String.to_charlist(zip_path), entries) do
       {:ok, _} ->
         zip_path
 

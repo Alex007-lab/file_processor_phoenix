@@ -468,7 +468,7 @@ defmodule ProcesadorArchivos do
             |> Enum.map(&process_file/1)
           end)
 
-        seq_time_ms = div(seq_time_us, 1000)
+        seq_time_ms = Float.round(seq_time_us / 1000, 3)
         IO.puts("   Time: #{seq_time_ms} ms")
 
         # ============ PARALLEL MODE ============
@@ -483,7 +483,7 @@ defmodule ProcesadorArchivos do
             })
           end)
 
-        par_time_ms = div(par_time_us, 1000)
+        par_time_ms = Float.round(par_time_us / 1000, 3)
         par_results = Map.values(results_map)
         IO.puts("   Time: #{par_time_ms} ms")
 

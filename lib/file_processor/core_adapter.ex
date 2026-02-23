@@ -15,23 +15,53 @@ defmodule ProcesadorArchivos.CoreAdapter do
     ProcesadorArchivos.process_parallel(file_paths)
   end
 
-  # Versión mejorada para benchmark
+  # Benchmark
   def run_benchmark(file_paths) when is_list(file_paths) do
-    case file_paths do
-      # Si es un solo elemento y es directorio
-      [dir] ->
-        if File.dir?(dir) do
-          run_benchmark_dir(dir)
+    if file_paths == [] do
+      {:error, "No hay archivos para benchmark"}
+    else
+      temp_root =
+        Path.join(:code.priv_dir(:file_processor), "benchmark_temp")
+
+      File.mkdir_p!(temp_root)
+
+      timestamp =
+        DateTime.utc_now()
+        |> DateTime.to_unix()
+
+      temp_dir =
+        Path.join(temp_root, "run_#{timestamp}")
+
+      File.mkdir_p!(temp_dir)
+
+      try do
+        Enum.each(file_paths, fn file ->
+          dest = Path.join(temp_dir, Path.basename(file))
+          File.cp!(file, dest)
+        end)
+
+        result = ProcesadorArchivos.benchmark(temp_dir, %{})
+
+        if is_map(result) and Map.has_key?(result, :benchmark_report) do
+          case File.read(result.benchmark_report) do
+            {:ok, full_content} ->
+              {:ok,
+               %{
+                 full_report: full_content,
+                 sequential_ms: result.sequential_ms,
+                 parallel_ms: result.parallel_ms
+               }}
+
+            _ ->
+              {:error, "No se pudo leer el reporte generado"}
+          end
         else
-          run_benchmark_files(file_paths)
+          {:error, "Resultado inesperado del benchmark"}
         end
-
-      # Si son múltiples archivos
-      files when is_list(files) ->
-        run_benchmark_files(files)
-
-      _ ->
-        {:error, "Benchmark requiere un directorio o lista de archivos válida"}
+      after
+        # Ahora sí existe temp_dir
+        File.rm_rf(temp_dir)
+      end
     end
   end
 
