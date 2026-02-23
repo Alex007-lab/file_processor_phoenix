@@ -1,27 +1,40 @@
 ================================================================================
-                  ERROR HANDLING REPORT - JSON
+                  ERROR HANDLING REPORT - LOG
 ================================================================================
 
-Generation date: 2026-02-23 10:10:53.316353Z
-File: sesiones.json
+Generation date: 2026-02-23 21:59:57.095760Z
+File: aplicacion.log
 Status: completo
-File type: JSON
+File type: LOG
 
 ================================================================================
-                  PROCESSING DETAILS
+                  PROCESSING STATISTICS
 ================================================================================
 
-JSON Structure: VALID
-Fields detected: sesiones, timestamp, usuarios
-Total users: 8
-Active users: 7
-Total sessions: 12
+Total lines in file: 71
+Valid log lines: 71
+Invalid lines: 0
+Valid lines percentage: 100.0%
+Invalid lines percentage: 0.0%
+
+Log level distribution:
+  - DEBUG: 10
+  - INFO: 47
+  - WARN: 6
+  - ERROR: 8
+  - FATAL: 0
+
+
+===============================================================================
+                    ALL LINES VALID
+===============================================================================
+All log lines follow the expected format.
 
 
 ===============================================================================
                     RECOMMENDATIONS
 ===============================================================================
-JSON válido y bien formado
+Archivo de log válido
 
 ================================================================================
                           END OF REPORT

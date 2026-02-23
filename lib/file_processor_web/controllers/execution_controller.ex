@@ -1,3 +1,4 @@
+# lib/file_processor_web/controllers/execution_controller.ex
 defmodule FileProcessorWeb.ExecutionController do
   use FileProcessorWeb, :controller
 
@@ -31,7 +32,7 @@ defmodule FileProcessorWeb.ExecutionController do
         nil
       end
 
-    render(conn, :show,
+    render(conn, :show_with_styles,
       execution: execution,
       benchmark_data: benchmark_data
     )
@@ -40,20 +41,11 @@ defmodule FileProcessorWeb.ExecutionController do
   def download(conn, %{"id" => id}) do
     execution = Executions.get_execution!(id)
 
-    cond do
-      # Si es benchmark → mantener comportamiento actual
-      execution.mode == "benchmark" ->
-        download_benchmark(conn, execution)
-
-      # Si es secuencial/paralelo y tiene errores
-      String.contains?(execution.result, "Error") or
-          String.contains?(execution.result, "parcial") ->
-        download_error_report(conn, execution)
-
-      # Caso normal → comportamiento actual
-      true ->
-        download_normal_report(conn, execution)
-    end
+    # Siempre descargar el resultado directamente (ya no hay archivos en output)
+    send_download(conn, {:binary, execution.result},
+      filename: "execution_#{execution.id}.txt",
+      content_type: "text/plain"
+    )
   end
 
   def delete(conn, %{"id" => id}) do
@@ -160,8 +152,7 @@ defmodule FileProcessorWeb.ExecutionController do
           end
       end
 
-    # Asegurar que siempre retornamos un string
-    if is_binary(result), do: result, else: inspect(result)
+    result
   end
 
   defp format_sequential_match(match) do
@@ -185,13 +176,15 @@ defmodule FileProcessorWeb.ExecutionController do
   """
   def extract_benchmark_data(report) when is_binary(report) do
     sequential =
-      extract_value(report, ~r/Sequential Mode:\s*(\d+)/i)
+      extract_value(report, ~r/Sequential Mode:\s*(\d+)/i) ||
+        extract_value(report, ~r/Secuencial:\s*(\d+)/i)
 
     parallel =
-      extract_value(report, ~r/Parallel Mode:\s*(\d+)/i)
+      extract_value(report, ~r/Parallel Mode:\s*(\d+)/i) ||
+        extract_value(report, ~r/Paralelo:\s*(\d+)/i)
 
     case {sequential, parallel} do
-      {seq, par} when is_integer(seq) and is_integer(par) ->
+      {seq, par} when is_number(seq) and is_number(par) ->
         time_saved = seq - par
 
         percent =
@@ -226,6 +219,8 @@ defmodule FileProcessorWeb.ExecutionController do
         nil
     end
   end
+
+  def extract_benchmark_data(_), do: nil
 
   @doc """
   Parsea el string de archivos y devuelve una lista con nombres y extensiones.
@@ -356,15 +351,6 @@ defmodule FileProcessorWeb.ExecutionController do
 
   def format_file_result(_), do: "Resultado no disponible"
 
-  @doc """
-  Función de depuración para ver qué formato tiene el reporte.
-  """
-  def debug_report_format(report) do
-    lines = String.split(report, "\n") |> Enum.take(20)
-    IO.inspect(lines, label: "PRIMERAS 20 LÍNEAS DEL REPORTE")
-    report
-  end
-
   # ==========================================
   # FUNCIONES PRIVADAS AUXILIARES
   # ==========================================
@@ -378,96 +364,6 @@ defmodule FileProcessorWeb.ExecutionController do
 
       _ ->
         nil
-    end
-  end
-
-  defp safe_float(value) when is_float(value), do: value
-  defp safe_float(value) when is_integer(value), do: value * 1.0
-  defp safe_float(_), do: 0.0
-
-  # ==========================================
-  # DOWNLOAD NORMAL
-  # ==========================================
-  defp download_normal_report(conn, execution) do
-    send_download(conn, {:binary, execution.result},
-      filename: "execution_#{execution.id}.txt",
-      content_type: "text/plain"
-    )
-  end
-
-  # ==========================================
-  # DOWNLOAD ERROR REPORT
-  # ==========================================
-  defp download_error_report(conn, execution) do
-    execution_dir =
-      Path.expand("output/execution_#{execution.id}")
-
-    unless File.exists?(execution_dir) do
-      conn
-      |> put_flash(:error, "No se encontró la carpeta de esta ejecución")
-      |> redirect(to: ~p"/executions/#{execution.id}")
-    else
-      error_reports =
-        Path.wildcard(Path.join(execution_dir, "*.txt"))
-
-      case error_reports do
-        [] ->
-          conn
-          |> put_flash(:error, "No se encontraron reportes de errores")
-          |> redirect(to: ~p"/executions/#{execution.id}")
-
-        [single] ->
-          send_download(conn, {:file, single},
-            filename: Path.basename(single),
-            content_type: "text/plain"
-          )
-
-        multiple ->
-          zip_path = create_error_zip(multiple, execution.id)
-
-          send_download(conn, {:file, zip_path},
-            filename: "error_reports_execution_#{execution.id}.zip",
-            content_type: "application/zip"
-          )
-      end
-    end
-  end
-
-  # ==========================================
-  # DOWNLOAD BENCHMARK
-  # ==========================================
-  defp download_benchmark(conn, execution) do
-    send_download(conn, {:binary, execution.result},
-      filename: "benchmark_#{execution.id}.txt",
-      content_type: "text/plain"
-    )
-  end
-
-  # ==========================================
-  # Compresion de archivos ZIP
-  # ==========================================
-  defp create_error_zip(files, execution_id) do
-    execution_dir =
-      Path.expand("output/execution_#{execution_id}")
-
-    File.mkdir_p!(execution_dir)
-
-    zip_path =
-      Path.join(execution_dir, "error_reports_execution_#{execution_id}.zip")
-
-    entries =
-      Enum.map(files, fn file ->
-        {:ok, content} = File.read(file)
-        {String.to_charlist(Path.basename(file)), content}
-      end)
-
-    case :zip.create(String.to_charlist(zip_path), entries) do
-      {:ok, _} ->
-        zip_path
-
-      {:error, reason} ->
-        IO.inspect(reason, label: "ZIP ERROR")
-        raise "No se pudo crear el ZIP"
     end
   end
 end

@@ -1,6 +1,7 @@
 defmodule ProcesadorArchivos.CoreAdapter do
   @moduledoc """
   Adaptador entre Phoenix y el core ProcesadorArchivos.
+  Versión que NO modifica el core pero captura los reportes.
   """
 
   def process_sequential(file_paths) do
@@ -15,7 +16,6 @@ defmodule ProcesadorArchivos.CoreAdapter do
     ProcesadorArchivos.process_parallel(file_paths)
   end
 
-  # Benchmark
   def run_benchmark(file_paths) when is_list(file_paths) do
     if file_paths == [] do
       {:error, "No hay archivos para benchmark"}
@@ -40,92 +40,51 @@ defmodule ProcesadorArchivos.CoreAdapter do
           File.cp!(file, dest)
         end)
 
+        # Capturar la salida del benchmark
         result = ProcesadorArchivos.benchmark(temp_dir, %{})
 
-        if is_map(result) and Map.has_key?(result, :benchmark_report) do
-          case File.read(result.benchmark_report) do
-            {:ok, full_content} ->
-              {:ok,
-               %{
-                 full_report: full_content,
-                 sequential_ms: result.sequential_ms,
-                 parallel_ms: result.parallel_ms
-               }}
+        if is_map(result) do
+          # Intentar obtener el contenido del reporte de varias formas
+          content =
+            cond do
+              # Si el resultado ya trae el contenido
+              Map.has_key?(result, :benchmark_content) ->
+                result.benchmark_content
 
-            _ ->
-              {:error, "No se pudo leer el reporte generado"}
-          end
+              # Si tiene la ruta del reporte, intentamos leerlo
+              Map.has_key?(result, :benchmark_report) ->
+                report_path = result.benchmark_report
+                case File.read(report_path) do
+                  {:ok, c} ->
+                    # Leer y luego eliminar el archivo temporal
+                    File.rm(report_path)
+                    c
+                  _ ->
+                    "Benchmark completado pero no se pudo leer el reporte"
+                end
+
+              # Si no hay reporte, generamos uno basado en los datos
+              true ->
+                """
+                BENCHMARK RESULTS
+                ━━━━━━━━━━━━━━━━━━━━━━━━━
+                Secuencial: #{Map.get(result, :sequential_ms, 0)} ms
+                Paralelo:   #{Map.get(result, :parallel_ms, 0)} ms
+                Mejora:      #{Map.get(result, :improvement, 0)}x
+                """
+            end
+
+          {:ok,
+           %{
+             full_report: content,
+             sequential_ms: Map.get(result, :sequential_ms, 0),
+             parallel_ms: Map.get(result, :parallel_ms, 0),
+             improvement: Map.get(result, :improvement, 0),
+             percent_faster: Map.get(result, :percent_faster, 0)
+           }}
         else
           {:error, "Resultado inesperado del benchmark"}
         end
-      after
-        # Ahora sí existe temp_dir
-        File.rm_rf(temp_dir)
-      end
-    end
-  end
-
-  # Benchmark con directorio (usa el core original)
-  defp run_benchmark_dir(dir) do
-    result = ProcesadorArchivos.benchmark(dir, %{})
-
-    cond do
-      is_map(result) and Map.has_key?(result, :benchmark_report) ->
-        case File.read(result.benchmark_report) do
-          {:ok, full_content} ->
-            {:ok,
-             %{
-               summary:
-                 extract_benchmark_summary(
-                   {:ok,
-                    %{
-                      sequential_ms: result.sequential_ms,
-                      parallel_ms: result.parallel_ms,
-                      improvement: result.improvement,
-                      time_saved: result.sequential_ms - result.parallel_ms,
-                      percent_faster: result.percent_faster
-                    }}
-                 ),
-               full_report: full_content,
-               sequential_ms: result.sequential_ms,
-               parallel_ms: result.parallel_ms,
-               improvement: result.improvement,
-               percent_faster: result.percent_faster,
-               time_saved: result.sequential_ms - result.parallel_ms
-             }}
-
-          _ ->
-            {:error, "No se pudo leer el archivo de benchmark generado"}
-        end
-
-      is_map(result) ->
-        {:error, "Resultado inesperado del benchmark"}
-
-      true ->
-        {:error, "Error en benchmark"}
-    end
-  end
-
-  # Benchmark con lista de archivos (crea directorio temporal)
-  defp run_benchmark_files(files) do
-    # Verificar que hay archivos
-    if length(files) == 0 do
-      {:error, "No hay archivos para benchmark"}
-    else
-      # Crear directorio temporal único
-      timestamp = DateTime.utc_now() |> DateTime.to_string() |> String.replace(":", "-")
-      temp_dir = Path.join(System.tmp_dir!(), "benchmark_#{timestamp}")
-      File.mkdir_p!(temp_dir)
-
-      try do
-        # Copiar archivos al directorio temporal
-        Enum.each(files, fn file_path ->
-          dest = Path.join(temp_dir, Path.basename(file_path))
-          File.cp!(file_path, dest)
-        end)
-
-        # Ejecutar benchmark en el directorio temporal
-        run_benchmark_dir(temp_dir)
       after
         # Limpiar archivos temporales
         File.rm_rf(temp_dir)
@@ -133,17 +92,15 @@ defmodule ProcesadorArchivos.CoreAdapter do
     end
   end
 
-  # Helper para extraer resultados del benchmark
   def extract_benchmark_summary(result) do
     case result do
       {:ok, data} when is_map(data) ->
         seq = Map.get(data, :sequential_ms, 0)
         par = Map.get(data, :parallel_ms, 0)
         imp = Map.get(data, :improvement, 0)
-        time_saved = Map.get(data, :time_saved, 0)
+        time_saved = seq - par
         percent = Map.get(data, :percent_faster, 0)
 
-        # Determinar qué modo es más rápido
         faster =
           cond do
             time_saved > 0 -> "⚡ Paralelo es más rápido"

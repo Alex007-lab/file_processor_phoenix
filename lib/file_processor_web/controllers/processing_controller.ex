@@ -3,20 +3,14 @@ defmodule FileProcessorWeb.ProcessingController do
 
   alias ProcesadorArchivos.CoreAdapter
   alias FileProcessor.Executions
-  alias FileProcessor.Repo
 
   @allowed_extensions [".csv", ".json", ".log"]
+  @output_dir "output"
 
-  # ==========================================
-  # FORMULARIO
-  # ==========================================
   def new(conn, _params) do
     render(conn, :new)
   end
 
-  # ==========================================
-  # PROCESAMIENTO
-  # ==========================================
   def create(conn, %{"files" => uploads, "mode" => mode}) do
     cond do
       uploads == [] ->
@@ -34,9 +28,6 @@ defmodule FileProcessorWeb.ProcessingController do
     end
   end
 
-  # ==========================================
-  # VALIDACIÓN DE EXTENSIONES
-  # ==========================================
   defp has_invalid_extensions?(uploads) do
     uploads
     |> Enum.map(&String.downcase(&1.filename))
@@ -45,16 +36,12 @@ defmodule FileProcessorWeb.ProcessingController do
     end)
   end
 
-  # ==========================================
-  # PROCESAMIENTO INTERNO
-  # ==========================================
   defp process_files(conn, uploads, mode) do
     start_time = System.monotonic_time(:millisecond)
 
     upload_dir = Path.join(:code.priv_dir(:file_processor), "uploads")
     File.mkdir_p!(upload_dir)
 
-    # Copiar archivos con su nombre real
     saved_paths =
       Enum.map(uploads, fn %Plug.Upload{path: temp_path, filename: filename} ->
         destination = Path.join(upload_dir, filename)
@@ -62,361 +49,429 @@ defmodule FileProcessorWeb.ProcessingController do
         destination
       end)
 
-    # SNAPSHOT ANTES DEL PROCESAMIENTO
-    # ==========================================
-    output_root = Path.join(File.cwd!(), "output")
-    File.mkdir_p!(output_root)
-
-    existing_error_files =
-      Path.wildcard(Path.join(output_root, "report_errores_*"))
+    # Limpiar archivos temporales antiguos (opcional)
+    cleanup_old_output_files()
 
     # Procesar según el modo
     result_data =
       case mode do
         "sequential" ->
-          {:ok, CoreAdapter.process_sequential(saved_paths)}
+          results = CoreAdapter.process_sequential(saved_paths)
+          total_time = System.monotonic_time(:millisecond) - start_time
+          report = build_single_report(results, mode, total_time)
+          %{report: report, results: results, total_time: total_time}
 
         "parallel" ->
           case CoreAdapter.process_parallel(saved_paths) do
-            %{results: results, total_time: time, successes: ok, errors: err} ->
-              {:ok,
-               %{
-                 type: "parallel",
-                 results: results,
-                 total_time: time,
-                 successes: ok,
-                 errors: err
-               }}
+            %{results: results, successes: successes, errors: errors} = full_result ->
+              total_time = System.monotonic_time(:millisecond) - start_time
+              report = build_parallel_report(full_result, total_time)
 
-            other ->
-              {:ok, %{type: "parallel", result: other}}
+              %{
+                report: report,
+                results: results,
+                total_time: total_time,
+                successes: successes,
+                errors: errors
+              }
           end
 
         "benchmark" ->
-          CoreAdapter.run_benchmark(saved_paths)
+          case CoreAdapter.run_benchmark(saved_paths) do
+            {:ok, data} ->
+              total_time = System.monotonic_time(:millisecond) - start_time
+              report = build_benchmark_report(data, total_time)
+              %{report: report, benchmark_data: data, total_time: total_time}
 
-        _ ->
-          {:error, "Modo inválido"}
+            error ->
+              %{report: "Error en benchmark: #{inspect(error)}", total_time: 0}
+          end
       end
-
-    total_time = System.monotonic_time(:millisecond) - start_time
 
     files_string =
       uploads
       |> Enum.map(& &1.filename)
       |> Enum.join(", ")
 
-    formatted_result = build_report(result_data, mode, total_time)
-
-    # Determinar contenido real del reporte
-    full_result =
-      case {mode, result_data} do
-        {"benchmark", {:ok, %{full_report: full}}} -> full
-        _ -> formatted_result
-      end
-
-    timestamp =
-      DateTime.utc_now()
-      |> DateTime.to_iso8601()
-      |> String.replace(":", "-")
-
-    filename =
-      case mode do
-        "benchmark" -> "report_benchmark_#{timestamp}.txt"
-        "parallel" -> "report_parallel_#{timestamp}.txt"
-        _ -> "report_sequential_#{timestamp}.txt"
-      end
-
-    file_path = Path.join(output_root, filename)
-
-    File.write!(file_path, full_result)
-
-    # SNAPSHOT DESPUÉS DEL PROCESAMIENTO
-    # ==========================================
-    new_error_files =
-      Path.wildcard(Path.join(output_root, "report_errores_*"))
-      |> Enum.reject(&(&1 in existing_error_files))
+    # Limpiar archivos temporales de output después de procesar
+    cleanup_temp_files()
 
     # Guardar ejecución
-    case Executions.create_execution(%{
-           timestamp: DateTime.utc_now(),
-           files: files_string,
-           mode: mode,
-           total_time: total_time,
-           result: full_result,
-           status:
-             if String.contains?(full_result, "❌") or
-                  String.contains?(full_result, "Error") do
-               "partial"
-             else
-               "success"
-             end,
-           report_path: file_path
-         }) do
-      {:ok, execution} ->
-        execution_dir =
-          Path.join(output_root, "execution_#{execution.id}")
-
-        File.mkdir_p!(execution_dir)
-
-        # Mover reporte principal
-        new_report_path =
-          Path.join(execution_dir, Path.basename(file_path))
-
-        File.rename!(file_path, new_report_path)
-
-        # Mover los errores generados en esta ejecución
-        Enum.each(new_error_files, fn file ->
-          File.rename!(file, Path.join(execution_dir, Path.basename(file)))
-        end)
-
-        # Actualizar ruta en BD
-        Executions.update_execution(execution, %{
-          report_path: new_report_path
-        })
-
-        redirect(conn, to: ~p"/executions/#{execution.id}")
-
-      {:error, changeset} ->
-        IO.inspect(changeset.errors, label: "ERROR AL GUARDAR")
-
-        conn
-        |> put_flash(:error, "Error al guardar la ejecución")
-        |> redirect(to: ~p"/processing")
-    end
+    save_execution(conn, files_string, mode, result_data)
   end
 
-  # ==========================================
-  # GUARDADO EN BASE DE DATOS
-  # ==========================================
-  defp save_execution(conn, files_string, mode, total_time, result_text, file_path) do
-    status =
-      if String.contains?(result_text, "❌") or
-           String.contains?(result_text, "Error"),
-         do: "partial",
-         else: "success"
+  # Construye UN SOLO reporte para secuencial
+  # Reemplaza la función build_single_report en processing_controller.ex
 
-    case Executions.create_execution(%{
-           timestamp: DateTime.utc_now(),
-           files: files_string,
-           mode: mode,
-           total_time: total_time,
-           result: result_text,
-           status: status,
-           report_path: file_path
-         }) do
-      {:ok, execution} ->
-        execution_dir = Path.join(File.cwd!(), "output/execution_#{execution.id}")
-        File.mkdir_p!(execution_dir)
-
-        # Mover el archivo generado a su carpeta
-        new_report_path =
-          Path.join(execution_dir, Path.basename(file_path))
-
-        File.rename!(file_path, new_report_path)
-
-        # Actualizar el report_path en BD
-        Executions.update_execution(execution, %{
-          report_path: new_report_path
-        })
-
-        redirect(conn, to: ~p"/executions/#{execution.id}")
-
-      {:error, changeset} ->
-        IO.inspect(changeset.errors, label: "ERROR AL GUARDAR")
-
-        conn
-        |> put_flash(:error, "Error al guardar la ejecución")
-        |> redirect(to: ~p"/processing")
-    end
-  end
-
-  def update_execution(execution, attrs) do
-    execution
-    |> Execution.changeset(attrs)
-    |> Repo.update()
-  end
-
-  # ==========================================
-  # CONSTRUCCIÓN DEL REPORTE
-  # ==========================================
-
-  defp build_report({:ok, data}, mode, total_time) do
-    case mode do
-      "benchmark" ->
-        case data do
-          %{summary: summary} -> summary
-          _ -> CoreAdapter.extract_benchmark_summary({:ok, data})
+  defp build_single_report(results, mode, total_time) do
+    # Contar correctamente los éxitos y errores
+    successes =
+      Enum.count(results, fn result ->
+        case result do
+          %{status: :success} -> true
+          %{estado: :completo} -> true
+          _ -> false
         end
+      end)
 
-      "parallel" when is_map(data) ->
-        """
-        =====================================
-        MODO: PARALLEL
-        =====================================
+    errors = length(results) - successes
 
-        ⏱️  Tiempo total: #{total_time} ms
-        ✅ Exitosos: #{Map.get(data, :successes, 0)}
-        ❌ Errores:   #{Map.get(data, :errors, 0)}
+    files_content =
+      Enum.map_join(results, "\n\n", fn result ->
+        # Verificar si hay reporte de errores adicional
+        error_report = Map.get(result, :reporte_contenido, "")
 
-        Resultados por archivo:
-        #{extract_parallel_results(data[:results])}
-        """
+        base_content =
+          case result do
+            %{
+              type: :csv,
+              file_name: file,
+              valid_records: valid,
+              total_sales: sales,
+              unique_products: unique
+            } ->
+              """
+              [#{file}] - CSV
+              ═══════════════════════════════
+              • Estado: éxito
+              • Registros válidos: #{valid}
+              • Productos únicos: #{unique}
+              • Ventas totales: $#{:erlang.float_to_binary(sales, decimals: 2)}
+              """
 
-      "sequential" ->
-        """
-        =====================================
-        MODO: SEQUENTIAL
-        =====================================
+            %{
+              type: :json,
+              file_name: file,
+              total_users: users,
+              active_users: active,
+              total_sessions: sessions
+            } ->
+              """
+              [#{file}] - JSON
+              ═══════════════════════════════
+              • Estado: éxito
+              • Total usuarios: #{users}
+              • Usuarios activos: #{active}
+              • Total sesiones: #{sessions}
+              """
 
-        ⏱️  Tiempo total: #{total_time} ms
+            %{
+              type: :log,
+              file_name: file,
+              total_lines: total,
+              debug: debug,
+              info: info,
+              warn: warn,
+              error: error,
+              fatal: fatal
+            } ->
+              """
+              [#{file}] - LOG
+              ═══════════════════════════════
+              • Estado: éxito
+              • Total líneas: #{total}
+              • Distribución:
+                  DEBUG: #{debug}
+                  INFO:  #{info}
+                  WARN:  #{warn}
+                  ERROR: #{error}
+                  FATAL: #{fatal}
+              """
 
-        Resultados:
-        #{extract_sequential_results(data)}
-        """
+            # Formato del core (con :archivo y :estado)
+            %{archivo: file, estado: estado, tipo_archivo: tipo} = full_result ->
+              estado_text = if estado == :completo, do: "éxito", else: "error"
 
-      _ ->
-        inspect(data, pretty: true)
-    end
-  end
+              case tipo do
+                :csv ->
+                  """
+                  [#{file}] - CSV
+                  ═══════════════════════════════
+                  • Estado: #{estado_text}
+                  • Registros válidos: #{get_in(full_result, [:detalles, :lineas_validas]) || 0}
+                  • Registros inválidos: #{get_in(full_result, [:detalles, :lineas_invalidas]) || 0}
+                  • Total líneas: #{get_in(full_result, [:detalles, :total_lineas]) || 0}
+                  • Éxito: #{get_in(full_result, [:detalles, :porcentaje_exito]) || 0}%
+                  """
 
-  defp build_report({:error, reason}, _mode, _total_time) do
-    """
-    =====================================
-    ❌ ERROR EN PROCESAMIENTO
-    =====================================
+                :json ->
+                  """
+                  [#{file}] - JSON
+                  ═══════════════════════════════
+                  • Estado: #{estado_text}
+                  • Total usuarios: #{get_in(full_result, [:detalles, :total_usuarios]) || 0}
+                  • Usuarios activos: #{get_in(full_result, [:detalles, :usuarios_activos]) || 0}
+                  • Total sesiones: #{get_in(full_result, [:detalles, :total_sesiones]) || 0}
+                  """
 
-    #{reason}
-    """
-  end
+                :log ->
+                  niveles = get_in(full_result, [:detalles, :distribucion_niveles]) || %{}
 
-  defp build_report(data, mode, total_time) do
+                  """
+                  [#{file}] - LOG
+                  ═══════════════════════════════
+                  • Estado: #{estado_text}
+                  • Líneas válidas: #{Map.get(full_result, :lineas_procesadas, 0)}
+                  • Líneas inválidas: #{Map.get(full_result, :lineas_con_error, 0)}
+                  • Total líneas: #{get_in(full_result, [:detalles, :total_lineas]) || 0}
+
+                  Distribución:
+                    • DEBUG: #{Map.get(niveles, :debug, 0)}
+                    • INFO:  #{Map.get(niveles, :info, 0)}
+                    • WARN:  #{Map.get(niveles, :warn, 0)}
+                    • ERROR: #{Map.get(niveles, :error, 0)}
+                    • FATAL: #{Map.get(niveles, :fatal, 0)}
+                  """
+
+                _ ->
+                  inspect(result, pretty: true)
+              end
+
+            %{file_name: file, status: :error, error: reason} ->
+              """
+              [#{file}] - ERROR
+              ═══════════════════════════════
+              • Estado: error
+              • Razón: #{reason}
+              """
+
+            other ->
+              inspect(other, pretty: true)
+          end
+
+        # Si hay reporte de error adicional, agregarlo
+        if error_report != "" do
+          base_content <> "\n\n" <> error_report
+        else
+          base_content
+        end
+      end)
+
     """
     =====================================
     MODO: #{String.upcase(mode)}
     =====================================
 
-    Tiempo total: #{total_time} ms
+    ⏱️  Tiempo total: #{total_time} ms
+    ✅ Exitosos: #{successes}
+    ❌ Errores:   #{errors}
 
-    Resultado:
-    #{inspect(data, pretty: true, limit: :infinity)}
+    Resultados por archivo:
+    #{files_content}
     """
   end
 
-  # ==========================================
-  # EXTRACTORES ESPECÍFICOS POR MODO
-  # ==========================================
+  # Construye UN SOLO reporte para paralelo
+  defp build_parallel_report(
+         %{results: results, successes: successes, errors: errors},
+         total_time_global
+       ) do
+    files_content =
+      Enum.map_join(results, "\n\n", fn result ->
+        # Verificar si hay reporte de errores adicional
+        error_report = Map.get(result, :reporte_contenido, "")
 
-  defp extract_sequential_results(results) when is_list(results) do
-    Enum.map_join(results, "\n", fn result ->
-      case result do
-        %{archivo: file, estado: estado, tipo_archivo: tipo} = full_result ->
-          """
-          [#{file}] - #{String.upcase(Atom.to_string(tipo))}
-          ═══════════════════════════════
-          • Estado: #{estado}
-          #{format_sequential_detalles(full_result)}
-          """
+        base_content =
+          case result do
+            %{
+              status: :success,
+              type: :csv,
+              file_name: file,
+              valid_records: valid,
+              total_sales: sales,
+              unique_products: unique
+            } ->
+              """
+              [#{file}] - CSV
+              ═══════════════════════════════
+              • Estado: éxito
+              • Registros válidos: #{valid}
+              • Productos únicos: #{unique}
+              • Ventas totales: $#{:erlang.float_to_binary(sales, decimals: 2)}
+              """
 
-        other ->
-          "  • #{inspect(other)}"
-      end
-    end)
+            %{
+              status: :success,
+              type: :json,
+              file_name: file,
+              total_users: users,
+              active_users: active,
+              total_sessions: sessions
+            } ->
+              """
+              [#{file}] - JSON
+              ═══════════════════════════════
+              • Estado: éxito
+              • Total usuarios: #{users}
+              • Usuarios activos: #{active}
+              • Total sesiones: #{sessions}
+              """
+
+            %{
+              status: :success,
+              type: :log,
+              file_name: file,
+              total_lines: total,
+              debug: debug,
+              info: info,
+              warn: warn,
+              error: error,
+              fatal: fatal
+            } ->
+              """
+              [#{file}] - LOG
+              ═══════════════════════════════
+              • Estado: éxito
+              • Total líneas: #{total}
+              • Distribución:
+                  DEBUG: #{debug}
+                  INFO:  #{info}
+                  WARN:  #{warn}
+                  ERROR: #{error}
+                  FATAL: #{fatal}
+              """
+
+            %{status: :error, file_name: file, error: reason} ->
+              """
+              [#{file}] - ERROR
+              ═══════════════════════════════
+              • Estado: error
+              • Razón: #{reason}
+              """
+
+            other ->
+              inspect(other, pretty: true)
+          end
+
+        # Si hay reporte de error adicional, agregarlo
+        if error_report != "" do
+          base_content <> "\n\n" <> error_report
+        else
+          base_content
+        end
+      end)
+
+    """
+    =====================================
+    MODO: PARALELO
+    =====================================
+
+    ⏱️  Tiempo total: #{total_time_global} ms
+    ✅ Exitosos: #{successes}
+    ❌ Errores:   #{errors}
+
+    Resultados por archivo:
+    #{files_content}
+    """
   end
 
-  defp extract_sequential_results(_), do: "  No hay resultados detallados"
+  # Construye UN SOLO reporte para benchmark
+  defp build_benchmark_report(data, total_time) do
+    summary = CoreAdapter.extract_benchmark_summary({:ok, data})
 
-  defp extract_parallel_results(results) when is_list(results) do
-    Enum.map_join(results, "\n", fn result ->
-      case result do
-        %{status: status, type: type, file_name: file} = full_result ->
-          """
-          [#{file}] - #{String.upcase(Atom.to_string(type))}
-          ═══════════════════════════════
-          • Estado: #{status}
-          #{format_parallel_metrics(full_result)}
-          """
+    """
+    #{summary}
 
-        other ->
-          "  • #{inspect(other)}"
-      end
-    end)
+    ⏱️  Tiempo total de benchmark: #{total_time} ms
+
+    Reporte completo del core:
+    #{Map.get(data, :full_report, "No disponible")}
+    """
   end
 
-  defp extract_parallel_results(_), do: ""
+  # Guarda la ejecución con UN SOLO reporte
+  defp save_execution(conn, files_string, mode, result_data) do
+    report_text = result_data.report
 
-  defp format_sequential_detalles(result) do
-    case Map.get(result, :tipo_archivo) do
-      :csv ->
-        detalles = Map.get(result, :detalles, %{})
+    # Determinar si hay errores REALES basado en el contenido
+    has_errors =
+      String.contains?(report_text, "❌ Errores:   0") == false or
+        String.contains?(report_text, "• Estado: error") or
+        (String.contains?(report_text, "❌") && !String.contains?(report_text, "❌ Errores:   0"))
 
-        """
-        • Registros válidos: #{Map.get(detalles, :lineas_validas, 0)}
-        • Registros inválidos: #{Map.get(detalles, :lineas_invalidas, 0)}
-        • Total líneas: #{Map.get(detalles, :total_lineas, 0)}
-        • Éxito: #{Map.get(detalles, :porcentaje_exito, 0)}%
-        """
+    status = if has_errors, do: "partial", else: "success"
 
-      :json ->
-        detalles = Map.get(result, :detalles, %{})
+    attrs = %{
+      timestamp: DateTime.utc_now(),
+      files: files_string,
+      mode: mode,
+      total_time: Map.get(result_data, :total_time, 0),
+      result: report_text,
+      status: status,
+      report_path: nil
+    }
 
-        """
-        • Total usuarios: #{Map.get(detalles, :total_usuarios, 0)}
-        • Usuarios activos: #{Map.get(detalles, :usuarios_activos, 0)}
-        • Total sesiones: #{Map.get(detalles, :total_sesiones, 0)}
-        """
+    case Executions.create_execution(attrs) do
+      {:ok, execution} ->
+        redirect(conn, to: ~p"/executions/#{execution.id}")
 
-      :log ->
-        detalles = Map.get(result, :detalles, %{})
-        niveles = Map.get(detalles, :distribucion_niveles, %{})
+      {:error, changeset} ->
+        IO.inspect(changeset.errors, label: "ERROR AL GUARDAR")
 
-        """
-        • Líneas válidas: #{Map.get(result, :lineas_procesadas, 0)}
-        • Líneas inválidas: #{Map.get(result, :lineas_con_error, 0)}
-        • Total líneas: #{Map.get(detalles, :total_lineas, 0)}
-
-        Distribución:
-          • DEBUG: #{Map.get(niveles, :debug, 0)}
-          • INFO:  #{Map.get(niveles, :info, 0)}
-          • WARN:  #{Map.get(niveles, :warn, 0)}
-          • ERROR: #{Map.get(niveles, :error, 0)}
-          • FATAL: #{Map.get(niveles, :fatal, 0)}
-        """
-
-      _ ->
-        inspect(result, pretty: true)
+        conn
+        |> put_flash(:error, "Error al guardar la ejecución")
+        |> redirect(to: ~p"/processing")
     end
   end
 
-  defp format_parallel_metrics(result) do
-    case Map.get(result, :type) do
-      :csv ->
-        """
-        • Registros válidos: #{Map.get(result, :valid_records, 0)}
-        • Productos únicos: #{Map.get(result, :unique_products, 0)}
-        • Ventas totales: $#{Map.get(result, :total_sales, 0)}
-        """
+  # Limpia archivos temporales de output
+  defp cleanup_temp_files do
+    Task.start(fn ->
+      case File.ls(@output_dir) do
+        {:ok, files} ->
+          now = DateTime.utc_now()
 
-      :json ->
-        """
-        • Total usuarios: #{Map.get(result, :total_users, 0)}
-        • Usuarios activos: #{Map.get(result, :active_users, 0)}
-        • Total sesiones: #{Map.get(result, :total_sessions, 0)}
-        """
+          Enum.each(files, fn file ->
+            path = Path.join(@output_dir, file)
 
-      :log ->
-        """
-        • Líneas totales: #{Map.get(result, :total_lines, 0)}
-        • Distribución:
-            DEBUG(#{Map.get(result, :debug, 0)}),
-            INFO(#{Map.get(result, :info, 0)}),
-            WARN(#{Map.get(result, :warn, 0)}),
-            ERROR(#{Map.get(result, :error, 0)}),
-            FATAL(#{Map.get(result, :fatal, 0)})
-        """
+            if String.ends_with?(file, ".txt") do
+              case File.stat(path) do
+                {:ok, %{mtime: mtime}} ->
+                  mtime_naive = NaiveDateTime.from_erl!(mtime)
+                  mtime_datetime = DateTime.from_naive!(mtime_naive, "Etc/UTC")
+
+                  if DateTime.diff(now, mtime_datetime) > 300 do
+                    File.rm(path)
+                  end
+
+                _ ->
+                  :ok
+              end
+            end
+          end)
+
+        _ ->
+          :ok
+      end
+    end)
+  end
+
+  defp cleanup_old_output_files do
+    case File.ls(@output_dir) do
+      {:ok, files} ->
+        now = DateTime.utc_now()
+
+        Enum.each(files, fn file ->
+          path = Path.join(@output_dir, file)
+
+          if String.ends_with?(file, ".txt") do
+            case File.stat(path) do
+              {:ok, %{mtime: mtime}} ->
+                mtime_naive = NaiveDateTime.from_erl!(mtime)
+                mtime_datetime = DateTime.from_naive!(mtime_naive, "Etc/UTC")
+
+                if DateTime.diff(now, mtime_datetime) > 3600 do
+                  File.rm(path)
+                end
+
+              _ ->
+                :ok
+            end
+          end
+        end)
 
       _ ->
-        ""
+        :ok
     end
   end
 end

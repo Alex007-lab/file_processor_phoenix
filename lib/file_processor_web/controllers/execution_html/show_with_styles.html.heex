@@ -1,0 +1,212 @@
+<Layouts.app flash={@flash}>
+  <.header>
+    Detalle de Ejecución
+    <:subtitle>
+      Reporte generado el {FileProcessorWeb.ExecutionController.format_datetime(
+        @execution.timestamp
+      )}
+    </:subtitle>
+
+    <:actions>
+      <.button navigate={~p"/executions"}>
+        <.icon name="hero-arrow-left" /> Volver al historial
+      </.button>
+
+      <.button variant="primary" href={~p"/executions/#{@execution.id}/download"}>
+        <.icon name="hero-arrow-down-tray" /> Descargar Reporte (TXT)
+      </.button>
+    </:actions>
+  </.header>
+
+  <!-- Resumen General -->
+  <% summary = get_execution_summary(@execution) %>
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="stats shadow bg-primary text-primary-content">
+      <div class="stat">
+        <div class="stat-title text-primary-content/70">Modo</div>
+        <div class="stat-value text-2xl">
+          <%= case @execution.mode do %>
+            <% "sequential" -> %> 📋 Secuencial
+            <% "parallel" -> %> ⚡ Paralelo
+            <% "benchmark" -> %> 📊 Benchmark
+          <% end %>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats shadow bg-secondary text-secondary-content">
+      <div class="stat">
+        <div class="stat-title text-secondary-content/70">Archivos</div>
+        <div class="stat-value text-2xl"><%= summary.total_files %></div>
+        <div class="stat-desc text-secondary-content/70">procesados</div>
+      </div>
+    </div>
+
+    <div class="stats shadow bg-accent text-accent-content">
+      <div class="stat">
+        <div class="stat-title text-accent-content/70">Tiempo total</div>
+        <div class="stat-value text-2xl"><%= summary.total_time %> ms</div>
+      </div>
+    </div>
+
+    <div class="stats shadow bg-base-100">
+      <div class="stat">
+        <div class="stat-title">Resultado</div>
+        <div class="stat-value text-2xl">
+          <div class="flex items-center gap-2">
+            <span class="text-success">✅ <%= summary.successes %></span>
+            <span class="text-warning">⚠️ <%= summary.errors %></span>
+          </div>
+        </div>
+        <div class="stat-desc">
+          <%= if summary.errors == 0 do %>
+            <span class="text-success">Completado exitosamente</span>
+          <% else %>
+            <span class="text-warning">Procesamiento parcial</span>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Benchmark visual (si aplica) -->
+  <%= if @execution.mode == "benchmark" and @benchmark_data do %>
+    <div class="card bg-base-100 shadow-xl mb-6">
+      <div class="card-body">
+        <h2 class="card-title text-2xl">
+          <.icon name="hero-chart-bar" class="w-6 h-6" /> Benchmark: Secuencial vs Paralelo
+        </h2>
+        
+        <div class="flex justify-center my-4">
+          <% badge_class = if @benchmark_data.time_saved > 0, do: "badge-success", else: "badge-warning" %>
+          <span class={"badge badge-lg " <> badge_class <> " gap-2 p-4 text-lg"}>
+            <%= @benchmark_data.faster_mode %>
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+          <div class="card bg-primary/10">
+            <div class="card-body items-center text-center">
+              <h3 class="card-title text-primary">Secuencial</h3>
+              <p class="text-4xl font-bold"><%= @benchmark_data.sequential_ms %> ms</p>
+            </div>
+          </div>
+          <div class="card bg-success/10">
+            <div class="card-body items-center text-center">
+              <h3 class="card-title text-success">Paralelo</h3>
+              <p class="text-4xl font-bold"><%= @benchmark_data.parallel_ms %> ms</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+          <div class="stat place-items-center">
+            <div class="stat-title">Factor de mejora</div>
+            <div class="stat-value text-3xl text-primary"><%= @benchmark_data.improvement %>x</div>
+          </div>
+          <div class="stat place-items-center">
+            <div class="stat-title">Diferencia</div>
+            <div class="stat-value text-3xl text-secondary"><%= @benchmark_data.time_saved %> ms</div>
+          </div>
+          <div class="stat place-items-center">
+            <div class="stat-title">Eficiencia</div>
+            <div class="stat-value text-3xl text-accent"><%= @benchmark_data.percent_faster %>%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <!-- Resultados por archivo con métricas detalladas -->
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+      <h2 class="card-title text-2xl mb-4">Resultados por archivo</h2>
+      
+      <div class="space-y-4">
+        <%= for file_info <- parse_execution_files(@execution) do %>
+          <div class="collapse collapse-arrow bg-base-200 hover:bg-base-300 transition-colors">
+            <input type="checkbox" /> 
+            <div class="collapse-title text-xl font-medium flex items-center gap-3">
+              <span class="text-2xl"><%= file_icon(file_info.extension) %></span>
+              <span class="font-mono"><%= file_info.name %></span>
+              <span class={"badge " <> file_info.status_class <> " badge-md"}><%= file_info.status_text %></span>
+            </div>
+            <div class="collapse-content">
+              <div class="p-6 bg-base-100 rounded-xl">
+                <!-- Métricas específicas por tipo -->
+                <%= if file_info.extension == ".csv" do %>
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div class="stat bg-primary/5 rounded-lg">
+                      <div class="stat-title">Registros válidos</div>
+                      <div class="stat-value text-2xl text-primary"><%= file_info.metrics.valid_records %></div>
+                    </div>
+                    <div class="stat bg-secondary/5 rounded-lg">
+                      <div class="stat-title">Productos únicos</div>
+                      <div class="stat-value text-2xl text-secondary"><%= file_info.metrics.unique_products %></div>
+                    </div>
+                    <div class="stat bg-accent/5 rounded-lg">
+                      <div class="stat-title">Ventas totales</div>
+                      <div class="stat-value text-2xl text-accent">$<%= file_info.metrics.total_sales %></div>
+                    </div>
+                  </div>
+                <% end %>
+
+                <%= if file_info.extension == ".json" do %>
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div class="stat bg-primary/5 rounded-lg">
+                      <div class="stat-title">Total usuarios</div>
+                      <div class="stat-value text-2xl text-primary"><%= file_info.metrics.total_users %></div>
+                    </div>
+                    <div class="stat bg-secondary/5 rounded-lg">
+                      <div class="stat-title">Usuarios activos</div>
+                      <div class="stat-value text-2xl text-secondary"><%= file_info.metrics.active_users %></div>
+                    </div>
+                    <div class="stat bg-accent/5 rounded-lg">
+                      <div class="stat-title">Total sesiones</div>
+                      <div class="stat-value text-2xl text-accent"><%= file_info.metrics.total_sessions %></div>
+                    </div>
+                  </div>
+                <% end %>
+
+                <%= if file_info.extension == ".log" do %>
+                  <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                    <div class="stat bg-primary/5 rounded-lg col-span-2 md:col-span-1">
+                      <div class="stat-title">Total líneas</div>
+                      <div class="stat-value text-2xl text-primary"><%= file_info.metrics.total_lines %></div>
+                    </div>
+                    <div class="stat bg-info/5 rounded-lg">
+                      <div class="stat-title">DEBUG</div>
+                      <div class="stat-value text-2xl text-info"><%= file_info.metrics.debug %></div>
+                    </div>
+                    <div class="stat bg-success/5 rounded-lg">
+                      <div class="stat-title">INFO</div>
+                      <div class="stat-value text-2xl text-success"><%= file_info.metrics.info %></div>
+                    </div>
+                    <div class="stat bg-warning/5 rounded-lg">
+                      <div class="stat-title">WARN</div>
+                      <div class="stat-value text-2xl text-warning"><%= file_info.metrics.warn %></div>
+                    </div>
+                    <div class="stat bg-error/5 rounded-lg">
+                      <div class="stat-title">ERROR</div>
+                      <div class="stat-value text-2xl text-error"><%= file_info.metrics.error %></div>
+                    </div>
+                    <div class="stat bg-error/10 rounded-lg">
+                      <div class="stat-title">FATAL</div>
+                      <div class="stat-value text-2xl text-error"><%= file_info.metrics.fatal %></div>
+                    </div>
+                  </div>
+                <% end %>
+
+                <!-- Detalles completos -->
+                <div class="mt-4">
+                  <h4 class="font-semibold mb-2">Detalles completos:</h4>
+                  <pre class="whitespace-pre-wrap font-mono text-sm bg-base-300 p-4 rounded-lg"><%= file_info.details %></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</Layouts.app>

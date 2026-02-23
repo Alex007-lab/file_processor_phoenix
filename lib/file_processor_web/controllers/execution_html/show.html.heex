@@ -22,7 +22,7 @@
     String.contains?(@execution.result, "❌") or
       String.contains?(@execution.result, "Error") %>
   
-<!-- Métricas globales -->
+  <!-- Métricas globales -->
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
       <div class="text-sm text-blue-600 dark:text-blue-400 font-medium">MODO</div>
@@ -53,7 +53,7 @@
     </div>
   </div>
   
-<!-- Benchmark -->
+  <!-- Benchmark -->
   <%= if @execution.mode == "benchmark" and @benchmark_data do %>
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
       <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
@@ -101,6 +101,7 @@
     </div>
   <% end %>
 
+  <!-- Reporte de Procesamiento -->
   <div class="mt-10">
     <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-8">
       <h3 class="text-2xl font-semibold mb-6 text-gray-800 dark:text-white">
@@ -108,9 +109,7 @@
       </h3>
 
       <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-gray-50 dark:bg-gray-800 overflow-auto max-h-[600px]">
-        <pre class="text-gray-800 dark:text-gray-200 text-sm leading-relaxed whitespace-pre-wrap font-mono">
-  <%= File.read!(@execution.report_path) %>
-        </pre>
+        <pre class="text-gray-800 dark:text-gray-200 text-sm leading-relaxed whitespace-pre-wrap font-mono"><%= @execution.result %></pre>
       </div>
     </div>
   </div>

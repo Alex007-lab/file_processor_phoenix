@@ -1,40 +1,27 @@
 ================================================================================
-                  ERROR HANDLING REPORT - LOG
+                  ERROR HANDLING REPORT - JSON
 ================================================================================
 
-Generation date: 2026-02-23 10:10:53.315794Z
-File: aplicacion.log
+Generation date: 2026-02-23 21:54:58.139431Z
+File: usuarios.json
 Status: completo
-File type: LOG
+File type: JSON
 
 ================================================================================
-                  PROCESSING STATISTICS
+                  PROCESSING DETAILS
 ================================================================================
 
-Total lines in file: 71
-Valid log lines: 71
-Invalid lines: 0
-Valid lines percentage: 100.0%
-Invalid lines percentage: 0.0%
-
-Log level distribution:
-  - DEBUG: 10
-  - INFO: 47
-  - WARN: 6
-  - ERROR: 8
-  - FATAL: 0
-
-
-===============================================================================
-                    ALL LINES VALID
-===============================================================================
-All log lines follow the expected format.
+JSON Structure: VALID
+Fields detected: sesiones, timestamp, usuarios
+Total users: 10
+Active users: 7
+Total sessions: 10
 
 
 ===============================================================================
                     RECOMMENDATIONS
 ===============================================================================
-Archivo de log válido
+JSON válido y bien formado
 
 ================================================================================
                           END OF REPORT

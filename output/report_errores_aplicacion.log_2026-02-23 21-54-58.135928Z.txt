@@ -2,8 +2,8 @@
                   ERROR HANDLING REPORT - LOG
 ================================================================================
 
-Generation date: 2026-02-23 10:10:53.316905Z
-File: sistema.log
+Generation date: 2026-02-23 21:54:58.136011Z
+File: aplicacion.log
 Status: completo
 File type: LOG
 
@@ -11,18 +11,18 @@ File type: LOG
                   PROCESSING STATISTICS
 ================================================================================
 
-Total lines in file: 72
-Valid log lines: 72
+Total lines in file: 71
+Valid log lines: 71
 Invalid lines: 0
 Valid lines percentage: 100.0%
 Invalid lines percentage: 0.0%
 
 Log level distribution:
-  - DEBUG: 6
-  - INFO: 49
-  - WARN: 7
-  - ERROR: 9
-  - FATAL: 1
+  - DEBUG: 10
+  - INFO: 47
+  - WARN: 6
+  - ERROR: 8
+  - FATAL: 0
 
 
 ===============================================================================
