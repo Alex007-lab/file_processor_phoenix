@@ -1,8 +1,72 @@
-<Layouts.app flash={@flash}>
-  <.header>
-    New Execution
-    <:subtitle>Use this form to manage execution records in your database.</:subtitle>
-  </.header>
+<div class="space-y-10">
+  <h2 class="text-3xl font-bold text-center mb-6">
+    Procesar Archivos
+  </h2>
 
-  <.execution_form changeset={@changeset} action={~p"/executions"} return_to={~p"/executions"} />
-</Layouts.app>
+  <p class="text-center text-base-content/70 mb-8">
+    Selecciona los archivos y el modo de procesamiento
+  </p>
+  
+<!-- INPUT REAL -->
+  <input
+    type="file"
+    id="file-input"
+    name="files[]"
+    multiple
+    accept=".csv,.json,.log"
+    class="hidden"
+  />
+  
+<!-- ZONA VISUAL -->
+  <div
+    id="drop-zone"
+    class="border-2 border-dashed border-base-300 rounded-xl p-12 bg-base-200 hover:bg-base-300 transition cursor-pointer min-h-[300px] flex items-center justify-center"
+  >
+    <div class="w-full text-center">
+      
+<!-- ESTADO VACÍO -->
+      <div id="empty-state" class="flex flex-col items-center gap-4 text-base-content/60">
+        <img src={~p"/images/upload.jpg"} class="w-40 opacity-80" />
+        <p class="text-lg font-medium">
+          Haz clic para seleccionar archivos
+        </p>
+        <p class="text-sm">
+          CSV · JSON · LOG
+        </p>
+      </div>
+      
+<!-- LISTA -->
+      <ul
+        id="file-list"
+        class="hidden mt-6 space-y-3 text-left max-h-[220px] overflow-y-auto"
+      >
+      </ul>
+    </div>
+  </div>
+  
+<!-- MODO -->
+  <div class="space-y-4 mt-10">
+    <h3 class="text-xl font-semibold">Modo de procesamiento</h3>
+
+    <div class="flex gap-6">
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="radio" name="mode" value="secuencial" /> Secuencial
+      </label>
+
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="radio" name="mode" value="paralelo" /> Paralelo
+      </label>
+
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="radio" name="mode" value="benchmark" /> Benchmark
+      </label>
+    </div>
+  </div>
+  
+<!-- BOTÓN -->
+  <div class="mt-8">
+    <button class="btn btn-primary">
+      Procesar Archivos
+    </button>
+  </div>
+</div>

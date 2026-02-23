@@ -1,0 +1,15 @@
+=====================================
+MODO: SEQUENTIAL
+=====================================
+
+⏱️  Tiempo total: 22 ms
+
+Resultados:
+[usuarios.json] - JSON
+═══════════════════════════════
+• Estado: completo
+• Total usuarios: 10
+• Usuarios activos: 7
+• Total sesiones: 10
+
+

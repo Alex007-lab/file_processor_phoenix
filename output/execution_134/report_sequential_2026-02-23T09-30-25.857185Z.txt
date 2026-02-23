@@ -1,0 +1,22 @@
+=====================================
+MODO: SEQUENTIAL
+=====================================
+
+⏱️  Tiempo total: 3 ms
+
+Resultados:
+[aplicacion.log] - LOG
+═══════════════════════════════
+• Estado: completo
+• Líneas válidas: 71
+• Líneas inválidas: 0
+• Total líneas: 71
+
+Distribución:
+  • DEBUG: 10
+  • INFO:  47
+  • WARN:  6
+  • ERROR: 8
+  • FATAL: 0
+
+

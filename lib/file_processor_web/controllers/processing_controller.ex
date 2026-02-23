@@ -3,6 +3,7 @@ defmodule FileProcessorWeb.ProcessingController do
 
   alias ProcesadorArchivos.CoreAdapter
   alias FileProcessor.Executions
+  alias FileProcessor.Repo
 
   @allowed_extensions [".csv", ".json", ".log"]
 

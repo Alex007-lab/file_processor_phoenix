@@ -1,0 +1,53 @@
+=====================================
+MODO: SEQUENTIAL
+=====================================
+
+⏱️  Tiempo total: 5 ms
+
+Resultados:
+[aplicacion.log] - LOG
+═══════════════════════════════
+• Estado: completo
+• Líneas válidas: 71
+• Líneas inválidas: 0
+• Total líneas: 71
+
+Distribución:
+  • DEBUG: 10
+  • INFO:  47
+  • WARN:  6
+  • ERROR: 8
+  • FATAL: 0
+
+
+[sesiones.json] - JSON
+═══════════════════════════════
+• Estado: completo
+• Total usuarios: 8
+• Usuarios activos: 7
+• Total sesiones: 12
+
+
+[sistema.log] - LOG
+═══════════════════════════════
+• Estado: completo
+• Líneas válidas: 72
+• Líneas inválidas: 0
+• Total líneas: 72
+
+Distribución:
+  • DEBUG: 6
+  • INFO:  49
+  • WARN:  7
+  • ERROR: 9
+  • FATAL: 1
+
+
+[usuarios.json] - JSON
+═══════════════════════════════
+• Estado: completo
+• Total usuarios: 10
+• Usuarios activos: 7
+• Total sesiones: 10
+
+

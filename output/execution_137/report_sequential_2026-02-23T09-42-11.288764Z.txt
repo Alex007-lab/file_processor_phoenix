@@ -1,0 +1,15 @@
+=====================================
+MODO: SEQUENTIAL
+=====================================
+
+⏱️  Tiempo total: 11 ms
+
+Resultados:
+[usuarios_malformado.json] - JSON
+═══════════════════════════════
+• Estado: error
+• Total usuarios: 0
+• Usuarios activos: 0
+• Total sesiones: 0
+
+

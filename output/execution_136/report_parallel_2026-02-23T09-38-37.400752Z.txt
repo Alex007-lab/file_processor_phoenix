@@ -1,0 +1,17 @@
+=====================================
+MODO: PARALLEL
+=====================================
+
+⏱️  Tiempo total: 4 ms
+✅ Exitosos: 0
+❌ Errores:   1
+
+Resultados por archivo:
+[usuarios_malformado.json] - JSON
+═══════════════════════════════
+• Estado: error
+• Total usuarios: 0
+• Usuarios activos: 0
+• Total sesiones: 0
+
+
