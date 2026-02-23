@@ -374,7 +374,7 @@ defmodule FileProcessorWeb.ProcessingController do
 
     ⏱️  Tiempo total de benchmark: #{total_time} ms
 
-    Reporte completo del core:
+    Reporte completo:
     #{Map.get(data, :full_report, "No disponible")}
     """
   end
