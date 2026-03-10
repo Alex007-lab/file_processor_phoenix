@@ -2,16 +2,13 @@ defmodule ProcesadorArchivos.CoreAdapter do
   @moduledoc """
   Adaptador entre Phoenix y el core ProcesadorArchivos.
 
-  Centraliza las llamadas al core para que los controllers no dependan
-  directamente de los módulos internos de ProcesadorArchivos.
+  Centraliza las llamadas al core para que los controllers y LiveViews
+  no dependan directamente de los módulos internos de ProcesadorArchivos.
 
   El core genera reportes en `output/` automáticamente como parte de su flujo.
   Dado que Phoenix guarda el contenido del reporte en la base de datos,
   los archivos en disco son redundantes. Este módulo los elimina tras cada
   llamada para que `output/` permanezca vacío entre ejecuciones.
-
-  Los reportes descargables se generan desde el contenido de la BD,
-  no desde archivos en disco.
   """
 
   @output_dir "output"
@@ -21,6 +18,21 @@ defmodule ProcesadorArchivos.CoreAdapter do
   # ---------------------------------------------------------------------------
 
   @doc """
+  Procesa un único archivo usando el parser directo del core.
+
+  Usado por ProcessingLive para procesar archivos de forma individual
+  y enviar feedback en tiempo real al cliente.
+
+  Devuelve el mapa estándar del parser:
+  `%{type, status, file_name, ...métricas}`.
+  """
+  def process_file_single(file_path) do
+    result = ProcesadorArchivos.process_file(file_path)
+    cleanup_output()
+    enrich_result(result, file_path)
+  end
+
+  @doc """
   Procesa una lista de archivos de forma secuencial usando los parsers directos
   del core (`ProcesadorArchivos.process_file/1`).
 
@@ -28,7 +40,9 @@ defmodule ProcesadorArchivos.CoreAdapter do
   `%{type, status, file_name, ...métricas específicas por tipo}`.
   """
   def process_sequential(file_paths) do
-    results = Enum.map(file_paths, &ProcesadorArchivos.process_file/1)
+    results =
+      Enum.zip(file_paths, Enum.map(file_paths, &ProcesadorArchivos.process_file/1))
+      |> Enum.map(fn {path, result} -> enrich_result(result, path) end)
     cleanup_output()
     results
   end
@@ -80,11 +94,72 @@ defmodule ProcesadorArchivos.CoreAdapter do
   end
 
   # ---------------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # Privadas — enriquecimiento de resultados
+  # ---------------------------------------------------------------------------
+
+  # El core nunca devuelve :error para archivos con datos parcialmente corruptos —
+  # simplemente filtra las líneas inválidas y retorna :ok con los registros válidos.
+  # Esta función detecta el caso "parcial": el parser tuvo éxito pero hubo líneas
+  # que no pudieron procesarse.
+
+  defp enrich_result(%{status: :success, type: :csv} = result, file_path) do
+    total_lines = count_data_lines(file_path)
+    valid        = Map.get(result, :valid_records, 0)
+
+    if total_lines > 0 and valid < total_lines do
+      Map.put(result, :status, :partial)
+    else
+      result
+    end
+  end
+
+  defp enrich_result(%{status: :success, type: :json} = result, file_path) do
+    # JSON malformado: si el archivo tiene contenido pero las métricas quedan en 0
+    # es señal de que el parser no pudo interpretar la estructura correctamente.
+    total_users    = Map.get(result, :total_users, 0)
+    total_sessions = Map.get(result, :total_sessions, 0)
+    file_size      = case File.stat(file_path) do
+                       {:ok, %{size: s}} -> s
+                       _ -> 0
+                     end
+
+    if file_size > 50 and total_users == 0 and total_sessions == 0 do
+      Map.put(result, :status, :partial)
+    else
+      result
+    end
+  end
+
+  defp enrich_result(%{status: :success, type: :log} = result, file_path) do
+    total_lines = count_data_lines(file_path)
+    valid        = Map.get(result, :total_lines, 0)
+
+    if total_lines > 0 and valid < total_lines do
+      Map.put(result, :status, :partial)
+    else
+      result
+    end
+  end
+
+  defp enrich_result(result, _file_path), do: result
+
+  defp count_data_lines(file_path) do
+    case File.read(file_path) do
+      {:ok, content} ->
+        content
+        |> String.split("\n")
+        |> Enum.drop(1)
+        |> Enum.reject(&(String.trim(&1) == ""))
+        |> length()
+      _ -> 0
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # Privadas — limpieza
   # ---------------------------------------------------------------------------
 
-  # Elimina todos los archivos dentro de output/ sin eliminar el directorio.
-  # El core necesita que el directorio exista, así que solo vaciamos su contenido.
   defp cleanup_output do
     if File.dir?(@output_dir) do
       @output_dir

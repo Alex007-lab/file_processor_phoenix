@@ -148,12 +148,15 @@ defmodule FileProcessor.ReportBuilder do
   defp success?(%{estado: :completo}), do: true
   defp success?(_), do: false
 
+  defp status_label(:success), do: "éxito"
+  defp status_label(:partial), do: "parcial"
+
   # Formato parser directo — CSV exitoso
-  defp format_file_result(%{type: :csv, status: :success, file_name: file} = r) do
+  defp format_file_result(%{type: :csv, status: status, file_name: file} = r) when status in [:success, :partial] do
     """
     [#{file}] - CSV
     ═══════════════════════════════
-    • Estado: éxito
+    • Estado: #{status_label(status)}
     • Registros válidos: #{r.valid_records}
     • Productos únicos: #{r.unique_products}
     • Ventas totales: $#{:erlang.float_to_binary(r.total_sales, decimals: 2)}
@@ -161,11 +164,11 @@ defmodule FileProcessor.ReportBuilder do
   end
 
   # Formato parser directo — JSON exitoso
-  defp format_file_result(%{type: :json, status: :success, file_name: file} = r) do
+  defp format_file_result(%{type: :json, status: status, file_name: file} = r) when status in [:success, :partial] do
     """
     [#{file}] - JSON
     ═══════════════════════════════
-    • Estado: éxito
+    • Estado: #{status_label(status)}
     • Total usuarios: #{r.total_users}
     • Usuarios activos: #{r.active_users}
     • Total sesiones: #{r.total_sessions}
@@ -173,11 +176,11 @@ defmodule FileProcessor.ReportBuilder do
   end
 
   # Formato parser directo — LOG exitoso
-  defp format_file_result(%{type: :log, status: :success, file_name: file} = r) do
+  defp format_file_result(%{type: :log, status: status, file_name: file} = r) when status in [:success, :partial] do
     """
     [#{file}] - LOG
     ═══════════════════════════════
-    • Estado: éxito
+    • Estado: #{status_label(status)}
     • Total líneas: #{r.total_lines}
     • Distribución:
         DEBUG: #{r.debug}

@@ -20,11 +20,10 @@ defmodule FileProcessorWeb.Router do
     # Página de inicio
     get "/", PageController, :home
 
-    # Procesamiento de archivos
-    get  "/processing", ProcessingController, :new
-    post "/processing", ProcessingController, :create
+    # Procesamiento — LiveView
+    live "/processing", ProcessingLive
 
-    # Historial de ejecuciones
+    # Historial de ejecuciones — controllers (por ahora)
     # IMPORTANTE: las rutas con segmentos fijos (/delete_all, /:id/download)
     # deben ir antes de las rutas con :id para que Phoenix no las interprete
     # como un id.

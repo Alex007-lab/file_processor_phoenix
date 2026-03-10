@@ -16,12 +16,38 @@ const csrfToken = document
     .getAttribute("content");
 
 // =====================================
+// HOOKS
+// =====================================
+const Hooks = {};
+
+Hooks.DropZone = {
+    mounted() {
+        const zone = this.el;
+
+        zone.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            zone.classList.add("border-blue-400", "bg-blue-50");
+        });
+
+        zone.addEventListener("dragleave", (e) => {
+            zone.classList.remove("border-blue-400", "bg-blue-50");
+        });
+
+        zone.addEventListener("drop", (e) => {
+            zone.classList.remove("border-blue-400", "bg-blue-50");
+            // No llamamos preventDefault ni stopPropagation aquí —
+            // LiveView necesita recibir el evento drop para procesar los archivos
+        });
+    },
+};
+
+// =====================================
 // LIVE SOCKET
 // =====================================
 const liveSocket = new LiveSocket("/live", Socket, {
     longPollFallbackMs: 2500,
     params: { _csrf_token: csrfToken },
-    hooks: { ...colocatedHooks },
+    hooks: { ...colocatedHooks, ...Hooks },
 });
 
 // =====================================
@@ -32,7 +58,7 @@ topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" });
 window.addEventListener("phx:page-loading-start", () => topbar.show(300));
 window.addEventListener("phx:page-loading-stop", () => {
     topbar.hide();
-    renderBenchmarkChart(); // Render chart after LiveView updates
+    renderBenchmarkChart();
 });
 
 // =====================================
@@ -54,7 +80,6 @@ function renderBenchmarkChart() {
     const sec = parseFloat(canvas.dataset.secuencial || 0);
     const par = parseFloat(canvas.dataset.paralelo || 0);
 
-    // Destroy previous instance to avoid duplicates
     if (benchmarkChartInstance) {
         benchmarkChartInstance.destroy();
     }
@@ -88,7 +113,6 @@ function renderBenchmarkChart() {
     });
 }
 
-// Initial load
 document.addEventListener("DOMContentLoaded", renderBenchmarkChart);
 
 // =====================================
