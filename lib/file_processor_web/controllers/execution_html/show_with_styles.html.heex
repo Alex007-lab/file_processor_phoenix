@@ -2,11 +2,8 @@
   <.header>
     Detalle de Ejecución
     <:subtitle>
-      Reporte generado el {FileProcessorWeb.ExecutionController.format_datetime(
-        @execution.timestamp
-      )}
+      Reporte generado el {FileProcessor.ExecutionHelpers.format_datetime(@execution.timestamp)}
     </:subtitle>
-
     <:actions>
       <.button navigate={~p"/executions"}>
         <.icon name="hero-arrow-left" /> Volver al historial
@@ -18,195 +15,199 @@
     </:actions>
   </.header>
 
-  <!-- Resumen General -->
+  <!-- Tarjetas de resumen -->
   <% summary = get_execution_summary(@execution) %>
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-    <div class="stats shadow bg-primary text-primary-content">
-      <div class="stat">
-        <div class="stat-title text-primary-content/70">Modo</div>
-        <div class="stat-value text-2xl">
-          <%= case @execution.mode do %>
-            <% "sequential" -> %> 📋 Secuencial
-            <% "parallel" -> %> ⚡ Paralelo
-            <% "benchmark" -> %> 📊 Benchmark
-          <% end %>
-        </div>
+
+    <div class="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+      <div class="text-sm text-blue-600 dark:text-blue-400 font-medium">MODO</div>
+      <div class="text-2xl font-bold text-blue-900 dark:text-blue-200 mt-1">
+        {FileProcessor.ExecutionHelpers.mode_display_name(@execution.mode)}
       </div>
     </div>
 
-    <div class="stats shadow bg-secondary text-secondary-content">
-      <div class="stat">
-        <div class="stat-title text-secondary-content/70">Archivos</div>
-        <div class="stat-value text-2xl"><%= summary.total_files %></div>
-        <div class="stat-desc text-secondary-content/70">procesados</div>
+    <div class="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+      <div class="text-sm text-purple-600 dark:text-purple-400 font-medium">ARCHIVOS</div>
+      <div class="text-2xl font-bold text-purple-900 dark:text-purple-200 mt-1">
+        {summary.total_files}
+      </div>
+      <div class="text-xs text-purple-600 dark:text-purple-400">procesados</div>
+    </div>
+
+    <div class="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
+      <div class="text-sm text-green-600 dark:text-green-400 font-medium">TIEMPO TOTAL</div>
+      <div class="text-2xl font-bold text-green-900 dark:text-green-200 mt-1">
+        {summary.total_time} ms
       </div>
     </div>
 
-    <div class="stats shadow bg-accent text-accent-content">
-      <div class="stat">
-        <div class="stat-title text-accent-content/70">Tiempo total</div>
-        <div class="stat-value text-2xl"><%= summary.total_time %> ms</div>
+    <div class="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+      <div class="text-sm text-amber-600 dark:text-amber-400 font-medium">RESULTADO</div>
+      <div class="text-2xl font-bold text-amber-900 dark:text-amber-200 mt-1">
+        <span class="text-success">✅ {summary.successes}</span>
+        <span class="text-warning ml-2">⚠️ {summary.errors}</span>
+      </div>
+      <div class="text-xs text-amber-600 dark:text-amber-400">
+        {if summary.errors == 0, do: "Completado exitosamente", else: "Procesamiento parcial"}
       </div>
     </div>
 
-    <div class="stats shadow bg-base-100">
-      <div class="stat">
-        <div class="stat-title">Resultado</div>
-        <div class="stat-value text-2xl">
-          <div class="flex items-center gap-2">
-            <span class="text-success">✅ <%= summary.successes %></span>
-            <span class="text-warning">⚠️ <%= summary.errors %></span>
-          </div>
-        </div>
-        <div class="stat-desc">
-          <%= if summary.errors == 0 do %>
-            <span class="text-success">Completado exitosamente</span>
-          <% else %>
-            <span class="text-warning">Procesamiento parcial</span>
-          <% end %>
-        </div>
-      </div>
-    </div>
   </div>
 
-  <!-- Benchmark visual (si aplica) -->
+  <!-- Benchmark visual -->
   <%= if @execution.mode == "benchmark" and @benchmark_data do %>
-    <div class="card bg-base-100 shadow-xl mb-6">
-      <div class="card-body">
-        <h2 class="card-title text-2xl">
-          <.icon name="hero-chart-bar" class="w-6 h-6" /> Benchmark: Secuencial vs Paralelo
-        </h2>
-        
-        <div class="flex justify-center my-4">
-          <% badge_class = if @benchmark_data.time_saved > 0, do: "badge-success", else: "badge-warning" %>
-          <span class={"badge badge-lg " <> badge_class <> " gap-2 p-4 text-lg"}>
-            <%= @benchmark_data.faster_mode %>
-          </span>
-        </div>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+        <.icon name="hero-chart-bar" /> Benchmark: Secuencial vs Paralelo
+      </h2>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-          <div class="card bg-primary/10">
-            <div class="card-body items-center text-center">
-              <h3 class="card-title text-primary">Secuencial</h3>
-              <p class="text-4xl font-bold"><%= @benchmark_data.sequential_ms %> ms</p>
-            </div>
-          </div>
-          <div class="card bg-success/10">
-            <div class="card-body items-center text-center">
-              <h3 class="card-title text-success">Paralelo</h3>
-              <p class="text-4xl font-bold"><%= @benchmark_data.parallel_ms %> ms</p>
-            </div>
-          </div>
-        </div>
+      <div class="text-center mb-4">
+        <% badge_class = if @benchmark_data.time_saved > 0, do: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400", else: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" %>
+        <span class={"px-4 py-2 rounded-full text-sm font-bold #{badge_class}"}>
+          {@benchmark_data.faster_mode}
+        </span>
+      </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-          <div class="stat place-items-center">
-            <div class="stat-title">Factor de mejora</div>
-            <div class="stat-value text-3xl text-primary"><%= @benchmark_data.improvement %>x</div>
-          </div>
-          <div class="stat place-items-center">
-            <div class="stat-title">Diferencia</div>
-            <div class="stat-value text-3xl text-secondary"><%= @benchmark_data.time_saved %> ms</div>
-          </div>
-          <div class="stat place-items-center">
-            <div class="stat-title">Eficiencia</div>
-            <div class="stat-value text-3xl text-accent"><%= @benchmark_data.percent_faster %>%</div>
-          </div>
+      <!-- Gráfico Chart.js -->
+      <div class="mb-6">
+        <canvas
+          id="benchmarkChart"
+          data-secuencial={@benchmark_data.sequential_ms}
+          data-paralelo={@benchmark_data.parallel_ms}
+          class="w-full h-64"
+        >
+        </canvas>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg text-center">
+          <p class="text-sm text-purple-600 dark:text-purple-400">Factor de mejora</p>
+          <p class="text-2xl font-bold text-purple-900 dark:text-purple-200">
+            {@benchmark_data.improvement}x
+          </p>
+        </div>
+        <div class="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg text-center">
+          <p class="text-sm text-green-600 dark:text-green-400">Diferencia</p>
+          <p class="text-2xl font-bold text-green-900 dark:text-green-200">
+            {@benchmark_data.time_saved} ms
+          </p>
+        </div>
+        <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-center">
+          <p class="text-sm text-blue-600 dark:text-blue-400">Eficiencia relativa</p>
+          <p class="text-2xl font-bold text-blue-900 dark:text-blue-200">
+            {@benchmark_data.percent_faster}%
+          </p>
         </div>
       </div>
     </div>
   <% end %>
 
-  <!-- Resultados por archivo con métricas detalladas -->
-  <div class="card bg-base-100 shadow-xl">
-    <div class="card-body">
-      <h2 class="card-title text-2xl mb-4">Resultados por archivo</h2>
-      
-      <div class="space-y-4">
-        <%= for file_info <- parse_execution_files(@execution) do %>
-          <div class="collapse collapse-arrow bg-base-200 hover:bg-base-300 transition-colors">
-            <input type="checkbox" /> 
-            <div class="collapse-title text-xl font-medium flex items-center gap-3">
-              <span class="text-2xl"><%= file_icon(file_info.extension) %></span>
-              <span class="font-mono"><%= file_info.name %></span>
-              <span class={"badge " <> file_info.status_class <> " badge-md"}><%= file_info.status_text %></span>
-            </div>
-            <div class="collapse-content">
-              <div class="p-6 bg-base-100 rounded-xl">
-                <!-- Métricas específicas por tipo -->
-                <%= if file_info.extension == ".csv" do %>
-                  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div class="stat bg-primary/5 rounded-lg">
-                      <div class="stat-title">Registros válidos</div>
-                      <div class="stat-value text-2xl text-primary"><%= file_info.metrics.valid_records %></div>
-                    </div>
-                    <div class="stat bg-secondary/5 rounded-lg">
-                      <div class="stat-title">Productos únicos</div>
-                      <div class="stat-value text-2xl text-secondary"><%= file_info.metrics.unique_products %></div>
-                    </div>
-                    <div class="stat bg-accent/5 rounded-lg">
-                      <div class="stat-title">Ventas totales</div>
-                      <div class="stat-value text-2xl text-accent">$<%= file_info.metrics.total_sales %></div>
-                    </div>
-                  </div>
-                <% end %>
+  <!-- Resultados por archivo -->
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      Resultados por archivo
+    </h2>
 
-                <%= if file_info.extension == ".json" do %>
-                  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div class="stat bg-primary/5 rounded-lg">
-                      <div class="stat-title">Total usuarios</div>
-                      <div class="stat-value text-2xl text-primary"><%= file_info.metrics.total_users %></div>
-                    </div>
-                    <div class="stat bg-secondary/5 rounded-lg">
-                      <div class="stat-title">Usuarios activos</div>
-                      <div class="stat-value text-2xl text-secondary"><%= file_info.metrics.active_users %></div>
-                    </div>
-                    <div class="stat bg-accent/5 rounded-lg">
-                      <div class="stat-title">Total sesiones</div>
-                      <div class="stat-value text-2xl text-accent"><%= file_info.metrics.total_sessions %></div>
-                    </div>
-                  </div>
-                <% end %>
+    <div class="space-y-4">
+      <%= for file_info <- parse_execution_files(@execution) do %>
+        <div class="collapse collapse-arrow bg-base-200 hover:bg-base-300 transition-colors">
+          <input type="checkbox" />
+          <div class="collapse-title text-xl font-medium flex items-center gap-3">
+            <span class="text-2xl">
+              {FileProcessor.ExecutionHelpers.file_icon(file_info.extension)}
+            </span>
+            <span class="font-mono">{file_info.name}</span>
+            <span class={"badge #{file_info.status_class} badge-md"}>
+              {file_info.status_text}
+            </span>
+          </div>
 
-                <%= if file_info.extension == ".log" do %>
-                  <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                    <div class="stat bg-primary/5 rounded-lg col-span-2 md:col-span-1">
-                      <div class="stat-title">Total líneas</div>
-                      <div class="stat-value text-2xl text-primary"><%= file_info.metrics.total_lines %></div>
-                    </div>
-                    <div class="stat bg-info/5 rounded-lg">
-                      <div class="stat-title">DEBUG</div>
-                      <div class="stat-value text-2xl text-info"><%= file_info.metrics.debug %></div>
-                    </div>
-                    <div class="stat bg-success/5 rounded-lg">
-                      <div class="stat-title">INFO</div>
-                      <div class="stat-value text-2xl text-success"><%= file_info.metrics.info %></div>
-                    </div>
-                    <div class="stat bg-warning/5 rounded-lg">
-                      <div class="stat-title">WARN</div>
-                      <div class="stat-value text-2xl text-warning"><%= file_info.metrics.warn %></div>
-                    </div>
-                    <div class="stat bg-error/5 rounded-lg">
-                      <div class="stat-title">ERROR</div>
-                      <div class="stat-value text-2xl text-error"><%= file_info.metrics.error %></div>
-                    </div>
-                    <div class="stat bg-error/10 rounded-lg">
-                      <div class="stat-title">FATAL</div>
-                      <div class="stat-value text-2xl text-error"><%= file_info.metrics.fatal %></div>
-                    </div>
-                  </div>
-                <% end %>
+          <div class="collapse-content">
+            <div class="p-6 bg-base-100 rounded-xl">
 
-                <!-- Detalles completos -->
-                <div class="mt-4">
-                  <h4 class="font-semibold mb-2">Detalles completos:</h4>
-                  <pre class="whitespace-pre-wrap font-mono text-sm bg-base-300 p-4 rounded-lg"><%= file_info.details %></pre>
+              <!-- Métricas CSV -->
+              <%= if file_info.extension == ".csv" do %>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div class="stat bg-primary/5 rounded-lg">
+                    <div class="stat-title">Registros válidos</div>
+                    <div class="stat-value text-2xl text-primary">{file_info.metrics.valid_records}</div>
+                  </div>
+                  <div class="stat bg-secondary/5 rounded-lg">
+                    <div class="stat-title">Productos únicos</div>
+                    <div class="stat-value text-2xl text-secondary">{file_info.metrics.unique_products}</div>
+                  </div>
+                  <div class="stat bg-accent/5 rounded-lg">
+                    <div class="stat-title">Ventas totales</div>
+                    <div class="stat-value text-2xl text-accent">${file_info.metrics.total_sales}</div>
+                  </div>
                 </div>
+              <% end %>
+
+              <!-- Métricas JSON -->
+              <%= if file_info.extension == ".json" do %>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div class="stat bg-primary/5 rounded-lg">
+                    <div class="stat-title">Total usuarios</div>
+                    <div class="stat-value text-2xl text-primary">{file_info.metrics.total_users}</div>
+                  </div>
+                  <div class="stat bg-secondary/5 rounded-lg">
+                    <div class="stat-title">Usuarios activos</div>
+                    <div class="stat-value text-2xl text-secondary">{file_info.metrics.active_users}</div>
+                  </div>
+                  <div class="stat bg-accent/5 rounded-lg">
+                    <div class="stat-title">Total sesiones</div>
+                    <div class="stat-value text-2xl text-accent">{file_info.metrics.total_sessions}</div>
+                  </div>
+                </div>
+              <% end %>
+
+              <!-- Métricas LOG -->
+              <%= if file_info.extension == ".log" do %>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                  <div class="stat bg-primary/5 rounded-lg col-span-2 md:col-span-1">
+                    <div class="stat-title">Total líneas</div>
+                    <div class="stat-value text-2xl text-primary">{file_info.metrics.total_lines}</div>
+                  </div>
+                  <%= for {label, key, color} <- [
+                    {"DEBUG", :debug, "info"},
+                    {"INFO",  :info,  "success"},
+                    {"WARN",  :warn,  "warning"},
+                    {"ERROR", :error, "error"},
+                    {"FATAL", :fatal, "error"}
+                  ] do %>
+                    <div class={"stat bg-#{color}/5 rounded-lg"}>
+                      <div class="stat-title">{label}</div>
+                      <div class={"stat-value text-2xl text-#{color}"}>{file_info.metrics[key]}</div>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+
+              <!-- Detalles completos -->
+              <div class="mt-4">
+                <h4 class="font-semibold mb-2">Detalles completos:</h4>
+                <pre class="whitespace-pre-wrap font-mono text-sm bg-base-300 p-4 rounded-lg">
+                  {file_info.details}
+                </pre>
               </div>
+
             </div>
           </div>
-        <% end %>
-      </div>
+        </div>
+      <% end %>
     </div>
   </div>
+
+  <!-- Reporte completo -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-8">
+    <h3 class="text-2xl font-semibold mb-6 text-gray-800 dark:text-white">
+      Reporte completo
+    </h3>
+    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-gray-50 dark:bg-gray-800 overflow-auto max-h-[600px]">
+      <pre class="text-gray-800 dark:text-gray-200 text-sm leading-relaxed whitespace-pre-wrap font-mono">
+        {@execution.result}
+      </pre>
+    </div>
+  </div>
+
 </Layouts.app>

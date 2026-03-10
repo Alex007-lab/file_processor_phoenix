@@ -1,18 +1,15 @@
-# lib/file_processor_web/controllers/execution_controller.ex
 defmodule FileProcessorWeb.ExecutionController do
   use FileProcessorWeb, :controller
 
   alias FileProcessor.Executions
+  alias FileProcessor.ExecutionHelpers
 
-  # ==========================================
-  # ACCIONES DEL CONTROLADOR
-  # ==========================================
+  # ---------------------------------------------------------------------------
+  # Acciones
+  # ---------------------------------------------------------------------------
 
   def index(conn, params) do
-    # Obtener ejecuciones según filtro
     executions = get_filtered_executions(params)
-
-    # Obtener estadísticas para el dashboard
     stats = Executions.get_statistics()
 
     render(conn, :index,
@@ -27,7 +24,7 @@ defmodule FileProcessorWeb.ExecutionController do
 
     benchmark_data =
       if execution.mode == "benchmark" do
-        extract_benchmark_data(execution.result)
+        ExecutionHelpers.extract_benchmark_data(execution.result)
       else
         nil
       end
@@ -41,7 +38,6 @@ defmodule FileProcessorWeb.ExecutionController do
   def download(conn, %{"id" => id}) do
     execution = Executions.get_execution!(id)
 
-    # Siempre descargar el resultado directamente (ya no hay archivos en output)
     send_download(conn, {:binary, execution.result},
       filename: "execution_#{execution.id}.txt",
       content_type: "text/plain"
@@ -65,305 +61,28 @@ defmodule FileProcessorWeb.ExecutionController do
     |> redirect(to: ~p"/executions")
   end
 
-  # ==========================================
-  # FUNCIONES PRIVADAS DEL CONTROLADOR
-  # ==========================================
+  # ---------------------------------------------------------------------------
+  # Privadas — filtrado
+  # ---------------------------------------------------------------------------
 
   defp get_filtered_executions(params) do
     case params["mode"] do
-      "sequential" -> Executions.list_executions_by_mode("sequential")
-      "parallel" -> Executions.list_executions_by_mode("parallel")
-      "benchmark" -> Executions.list_executions_by_mode("benchmark")
-      "today" -> filter_today()
-      "week" -> filter_this_week()
-      _ -> Executions.list_executions()
-    end
-  end
+      mode when mode in ["sequential", "parallel", "benchmark"] ->
+        Executions.list_executions_filtered(mode: mode)
 
-  defp filter_today do
-    today_start = Date.utc_today() |> DateTime.new!(~T[00:00:00])
-    today_end = Date.utc_today() |> DateTime.new!(~T[23:59:59])
-    Executions.list_executions_by_date_range(today_start, today_end)
-  end
+      "today" ->
+        today_start = Date.utc_today() |> DateTime.new!(~T[00:00:00])
+        today_end   = Date.utc_today() |> DateTime.new!(~T[23:59:59])
+        Executions.list_executions_filtered(date_start: today_start, date_end: today_end)
 
-  defp filter_this_week do
-    today = Date.utc_today()
-    start_of_week = Date.beginning_of_week(today)
-    end_of_week = Date.end_of_week(today)
-
-    week_start = DateTime.new!(start_of_week, ~T[00:00:00])
-    week_end = DateTime.new!(end_of_week, ~T[23:59:59])
-
-    Executions.list_executions_by_date_range(week_start, week_end)
-  end
-
-  # ==========================================
-  # HELPERS PARA LAS VISTAS (EXPORTADOS)
-  # ==========================================
-
-  @doc """
-  Extrae la sección de un archivo específico del reporte completo.
-  """
-  def extract_file_section(report, file) do
-    # Para modo secuencial (formato con • %{archivo: "nombre"})
-    pattern1 = ~r/• %\{[^\}]*archivo: "#{Regex.escape(file)}"[^\}]*\}/
-
-    # Para modo secuencial (formato con [nombre] - TIPO)
-    pattern2 = ~r/\[#{Regex.escape(file)}\].*?(?=\n\[|\Z)/s
-
-    # Para modo paralelo (formato con mapa de resultados)
-    pattern3 = ~r/"#{Regex.escape(file)}" => %\{[^\}]+\}/
-
-    # Para el formato del reporte descargable
-    pattern4 = ~r/\[#{Regex.escape(file)}\] - [A-Z]+\n═+[^\n]+\n(?:• [^\n]+\n)+/
-
-    result =
-      cond do
-        # Buscar en formato secuencial (patrón 1)
-        match = Regex.run(pattern1, report) ->
-          match |> hd() |> format_sequential_match()
-
-        # Buscar en formato secuencial (patrón 2)
-        match = Regex.run(pattern2, report) ->
-          match |> hd() |> String.trim()
-
-        # Buscar en formato paralelo
-        match = Regex.run(pattern3, report) ->
-          match |> hd() |> format_parallel_match()
-
-        # Buscar en formato de reporte descargable
-        match = Regex.run(pattern4, report) ->
-          match |> hd() |> String.trim()
-
-        true ->
-          # Último intento: buscar cualquier mención del archivo
-          lines = String.split(report, "\n")
-
-          relevant_lines =
-            Enum.filter(lines, fn line ->
-              String.contains?(line, file) and
-                not String.contains?(line, "No se encontraron resultados")
-            end)
-
-          if Enum.empty?(relevant_lines) do
-            "No se encontraron resultados para este archivo"
-          else
-            Enum.join(relevant_lines, "\n")
-          end
-      end
-
-    result
-  end
-
-  defp format_sequential_match(match) do
-    match
-    |> String.replace("• %{", "{\n  ")
-    |> String.replace(", ", "\n  ")
-    |> String.replace("}", "\n}")
-  end
-
-  defp format_parallel_match(match) do
-    match
-    |> String.split(" => ")
-    |> List.last()
-    |> String.replace("%{", "{\n  ")
-    |> String.replace(", ", "\n  ")
-    |> String.replace("}", "\n}")
-  end
-
-  @doc """
-  Extrae los datos de benchmark del reporte y los devuelve como mapa estructurado.
-  """
-  def extract_benchmark_data(report) when is_binary(report) do
-    sequential =
-      extract_value(report, ~r/Sequential Mode:\s*(\d+)/i) ||
-        extract_value(report, ~r/Secuencial:\s*(\d+)/i)
-
-    parallel =
-      extract_value(report, ~r/Parallel Mode:\s*(\d+)/i) ||
-        extract_value(report, ~r/Paralelo:\s*(\d+)/i)
-
-    case {sequential, parallel} do
-      {seq, par} when is_number(seq) and is_number(par) ->
-        time_saved = seq - par
-
-        percent =
-          if seq > 0 do
-            (seq - par) / seq * 100
-          else
-            0.0
-          end
-
-        improvement =
-          if par > 0 do
-            seq / par
-          else
-            0.0
-          end
-
-        %{
-          sequential_ms: seq,
-          parallel_ms: par,
-          improvement: Float.round(improvement, 2),
-          time_saved: abs(time_saved),
-          percent_faster: Float.round(abs(percent), 1),
-          faster_mode:
-            cond do
-              time_saved > 0 -> "⚡ Paralelo más rápido"
-              time_saved < 0 -> "📋 Secuencial más rápido"
-              true -> "⚖️ Igual rendimiento"
-            end
-        }
+      "week" ->
+        today      = Date.utc_today()
+        week_start = DateTime.new!(Date.beginning_of_week(today), ~T[00:00:00])
+        week_end   = DateTime.new!(Date.end_of_week(today), ~T[23:59:59])
+        Executions.list_executions_filtered(date_start: week_start, date_end: week_end)
 
       _ ->
-        nil
-    end
-  end
-
-  def extract_benchmark_data(_), do: nil
-
-  @doc """
-  Parsea el string de archivos y devuelve una lista con nombres y extensiones.
-  """
-  def parse_files_string(files_string) do
-    files_string
-    |> String.split(", ")
-    |> Enum.map(fn file ->
-      %{
-        full_name: file,
-        name: Path.basename(file),
-        extension: Path.extname(file)
-      }
-    end)
-  end
-
-  @doc """
-  Determina el ícono correspondiente según la extensión del archivo.
-  """
-  def file_icon(extension) do
-    case extension do
-      ".csv" -> "📊"
-      ".json" -> "📋"
-      ".log" -> "📝"
-      _ -> "📄"
-    end
-  end
-
-  @doc """
-  Determina el color de badge según el modo de procesamiento.
-  """
-  def mode_badge_color(mode) do
-    case mode do
-      "sequential" -> "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-      "parallel" -> "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-      "benchmark" -> "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
-      _ -> "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
-    end
-  end
-
-  @doc """
-  Texto amigable para el modo de procesamiento.
-  """
-  def mode_display_name(mode) do
-    case mode do
-      "sequential" -> "📋 Secuencial"
-      "parallel" -> "⚡ Paralelo"
-      "benchmark" -> "📊 Benchmark"
-      _ -> mode
-    end
-  end
-
-  @doc """
-  Formatea una fecha para mostrar.
-  """
-  def format_datetime(datetime) do
-    Calendar.strftime(datetime, "%d/%m/%Y %H:%M")
-  end
-
-  @doc """
-  Formatea solo la fecha.
-  """
-  def format_date(datetime) do
-    Calendar.strftime(datetime, "%d/%m/%Y")
-  end
-
-  @doc """
-  Formatea solo la hora.
-  """
-  def format_time(datetime) do
-    Calendar.strftime(datetime, "%H:%M")
-  end
-
-  @doc """
-  Formatea un resultado de archivo para mostrar bonito.
-  """
-  def format_file_result(result_map) when is_map(result_map) do
-    tipo = Map.get(result_map, :tipo_archivo, "desconocido")
-    archivo = Map.get(result_map, :archivo, "unknown")
-    estado = Map.get(result_map, :estado, :desconocido)
-    detalles = Map.get(result_map, :detalles, %{})
-
-    case tipo do
-      :csv ->
-        """
-        [#{archivo}] - CSV
-        ═══════════════════════════════
-        • Estado: #{estado}
-        • Registros válidos: #{Map.get(detalles, :lineas_validas, 0)}
-        • Registros inválidos: #{Map.get(detalles, :lineas_invalidas, 0)}
-        • Total líneas: #{Map.get(detalles, :total_lineas, 0)}
-        • Éxito: #{Map.get(detalles, :porcentaje_exito, 0)}%
-        """
-
-      :json ->
-        """
-        [#{archivo}] - JSON
-        ═══════════════════════════════
-        • Estado: #{estado}
-        • Total usuarios: #{Map.get(detalles, :total_usuarios, 0)}
-        • Usuarios activos: #{Map.get(detalles, :usuarios_activos, 0)}
-        • Total sesiones: #{Map.get(detalles, :total_sesiones, 0)}
-        """
-
-      :log ->
-        niveles = Map.get(detalles, :distribucion_niveles, %{})
-
-        """
-        [#{archivo}] - LOG
-        ═══════════════════════════════
-        • Estado: #{estado}
-        • Líneas válidas: #{Map.get(result_map, :lineas_procesadas, 0)}
-        • Líneas inválidas: #{Map.get(result_map, :lineas_con_error, 0)}
-        • Total líneas: #{Map.get(detalles, :total_lineas, 0)}
-
-        Distribución:
-          • DEBUG: #{Map.get(niveles, :debug, 0)}
-          • INFO:  #{Map.get(niveles, :info, 0)}
-          • WARN:  #{Map.get(niveles, :warn, 0)}
-          • ERROR: #{Map.get(niveles, :error, 0)}
-          • FATAL: #{Map.get(niveles, :fatal, 0)}
-        """
-
-      _ ->
-        inspect(result_map, pretty: true)
-    end
-  end
-
-  def format_file_result(_), do: "Resultado no disponible"
-
-  # ==========================================
-  # FUNCIONES PRIVADAS AUXILIARES
-  # ==========================================
-
-  defp extract_value(report, regex) do
-    case Regex.run(regex, report) do
-      [_, value] ->
-        if String.contains?(value, "."),
-          do: String.to_float(value),
-          else: String.to_integer(value)
-
-      _ ->
-        nil
+        Executions.list_executions()
     end
   end
 end

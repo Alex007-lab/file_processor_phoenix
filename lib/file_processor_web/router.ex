@@ -17,26 +17,24 @@ defmodule FileProcessorWeb.Router do
   scope "/", FileProcessorWeb do
     pipe_through :browser
 
+    # Página de inicio
     get "/", PageController, :home
 
-    # Rutas específicas para executions (DEBEN ir ANTES de resources)
-    delete "/executions/delete_all", ExecutionController, :delete_all
-    get "/executions/:id/download", ExecutionController, :download
-
-    # Recursos estándar - SIN except
-    resources "/executions", ExecutionController
-
-    # Rutas de procesamiento
-    get "/processing", ProcessingController, :new
+    # Procesamiento de archivos
+    get  "/processing", ProcessingController, :new
     post "/processing", ProcessingController, :create
+
+    # Historial de ejecuciones
+    # IMPORTANTE: las rutas con segmentos fijos (/delete_all, /:id/download)
+    # deben ir antes de las rutas con :id para que Phoenix no las interprete
+    # como un id.
+    delete "/executions/delete_all",   ExecutionController, :delete_all
+    get    "/executions/:id/download", ExecutionController, :download
+    get    "/executions",              ExecutionController, :index
+    get    "/executions/:id",          ExecutionController, :show
+    delete "/executions/:id",          ExecutionController, :delete
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", FileProcessorWeb do
-  #   pipe_through :api
-  # end
-
-  # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:file_processor, :dev_routes) do
     import Phoenix.LiveDashboard.Router
 

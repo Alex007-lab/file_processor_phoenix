@@ -23,8 +23,8 @@
       <% end %>
     </:actions>
   </.header>
-  
-<!-- Dashboard de estadísticas -->
+
+  <!-- Dashboard de estadísticas -->
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
       <div class="text-sm text-blue-600 dark:text-blue-400 font-medium">TOTAL</div>
@@ -43,67 +43,34 @@
 
     <div class="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
       <div class="text-sm text-purple-600 dark:text-purple-400 font-medium">📊 Benchmark</div>
-      <div class="text-2xl font-bold text-purple-900 dark:text-purple-200">
-        {@stats.benchmark}
-      </div>
+      <div class="text-2xl font-bold text-purple-900 dark:text-purple-200">{@stats.benchmark}</div>
     </div>
   </div>
-  
-<!-- Filtros mejorados -->
+
+  <!-- Filtros -->
   <div class="flex flex-wrap items-center gap-2 mb-6">
     <span class="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">Filtrar por:</span>
 
-    <.link
-      navigate={~p"/executions?mode=all"}
-      class={
-        if @current_filter == "all" || @current_filter == nil do
-          "px-4 py-2 rounded-full text-sm font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
-        else
-          "px-4 py-2 rounded-full text-sm font-medium transition-colors bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-        end
-      }
-    >
-      Todos
-    </.link>
-
-    <.link
-      navigate={~p"/executions?mode=sequential"}
-      class={
-        if @current_filter == "sequential" do
-          "px-4 py-2 rounded-full text-sm font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
-        else
-          "px-4 py-2 rounded-full text-sm font-medium transition-colors bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-        end
-      }
-    >
-      📋 Secuencial
-    </.link>
-
-    <.link
-      navigate={~p"/executions?mode=parallel"}
-      class={
-        if @current_filter == "parallel" do
-          "px-4 py-2 rounded-full text-sm font-medium transition-colors bg-green-600 text-white hover:bg-green-700"
-        else
-          "px-4 py-2 rounded-full text-sm font-medium transition-colors bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-        end
-      }
-    >
-      ⚡ Paralelo
-    </.link>
-
-    <.link
-      navigate={~p"/executions?mode=benchmark"}
-      class={
-        if @current_filter == "benchmark" do
-          "px-4 py-2 rounded-full text-sm font-medium transition-colors bg-purple-600 text-white hover:bg-purple-700"
-        else
-          "px-4 py-2 rounded-full text-sm font-medium transition-colors bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-        end
-      }
-    >
-      📊 Benchmark
-    </.link>
+    <%= for {label, value, color} <- [
+      {"Todos",      "all",        "blue"},
+      {"📋 Secuencial", "sequential", "blue"},
+      {"⚡ Paralelo",   "parallel",   "green"},
+      {"📊 Benchmark",  "benchmark",  "purple"}
+    ] do %>
+      <% active = @current_filter == value or (@current_filter == nil and value == "all") %>
+      <.link
+        navigate={~p"/executions?mode=#{value}"}
+        class={
+          if active do
+            "px-4 py-2 rounded-full text-sm font-medium transition-colors bg-#{color}-600 text-white hover:bg-#{color}-700"
+          else
+            "px-4 py-2 rounded-full text-sm font-medium transition-colors bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+          end
+        }
+      >
+        {label}
+      </.link>
+    <% end %>
 
     <span class="flex-1"></span>
 
@@ -121,8 +88,8 @@
       Esta semana
     </.link>
   </div>
-  
-<!-- Tabla de ejecuciones -->
+
+  <!-- Tabla de ejecuciones -->
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
     <%= if Enum.empty?(@executions) do %>
       <div class="text-center py-16">
@@ -130,14 +97,10 @@
         <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No hay ejecuciones</h3>
         <p class="text-gray-500 dark:text-gray-400 mb-6">
           <%= case @current_filter do %>
-            <% "sequential" -> %>
-              No hay ejecuciones en modo secuencial
-            <% "parallel" -> %>
-              No hay ejecuciones en modo paralelo
-            <% "benchmark" -> %>
-              No hay ejecuciones en modo benchmark
-            <% _ -> %>
-              Comienza procesando algunos archivos
+            <% "sequential" -> %> No hay ejecuciones en modo secuencial
+            <% "parallel"   -> %> No hay ejecuciones en modo paralelo
+            <% "benchmark"  -> %> No hay ejecuciones en modo benchmark
+            <% _            -> %> Comienza procesando algunos archivos
           <% end %>
         </p>
         <.button navigate={~p"/processing"}>
@@ -148,45 +111,32 @@
       <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
         <thead class="bg-gray-50 dark:bg-gray-900">
           <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Fecha
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Archivos
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Modo
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Tiempo
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Estado
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Acciones
-            </th>
+            <%= for header <- ["Fecha", "Archivos", "Modo", "Tiempo", "Estado", "Acciones"] do %>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                {header}
+              </th>
+            <% end %>
           </tr>
         </thead>
         <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
           <%= for execution <- @executions do %>
-            <% files_list = String.split(execution.files, ", ") %>
-            <% has_errors? =
-              String.contains?(execution.result, "❌") or
-                String.contains?(execution.result, "Error") %>
+            <% files_list   = String.split(execution.files, ", ", trim: true) %>
+            <% has_errors?  = execution.status == "partial" %>
+            <% mode_color   = FileProcessor.ExecutionHelpers.mode_badge_color(execution.mode) %>
 
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+
               <!-- Fecha -->
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm font-medium text-gray-900 dark:text-white">
-                  {FileProcessorWeb.ExecutionController.format_date(execution.timestamp)}
+                  {FileProcessor.ExecutionHelpers.format_date(execution.timestamp)}
                 </div>
                 <div class="text-xs text-gray-500 dark:text-gray-400">
-                  {FileProcessorWeb.ExecutionController.format_time(execution.timestamp)}
+                  {FileProcessor.ExecutionHelpers.format_time(execution.timestamp)}
                 </div>
               </td>
-              
-<!-- Archivos -->
+
+              <!-- Archivos -->
               <td class="px-6 py-4">
                 <div class="flex items-center gap-1 mb-1">
                   <span class="text-sm font-medium text-gray-900 dark:text-white">
@@ -196,9 +146,8 @@
                 </div>
                 <div class="flex flex-wrap gap-1">
                   <%= for file <- Enum.take(files_list, 3) do %>
-                    <% file_title = file %>
-                    <span class="text-lg" title={file_title}>
-                      {FileProcessorWeb.ExecutionController.file_icon(Path.extname(file))}
+                    <span class="text-lg" title={file}>
+                      {FileProcessor.ExecutionHelpers.file_icon(Path.extname(file))}
                     </span>
                   <% end %>
                   <%= if length(files_list) > 3 do %>
@@ -208,24 +157,21 @@
                   <% end %>
                 </div>
               </td>
-              
-<!-- Modo -->
+
+              <!-- Modo -->
               <td class="px-6 py-4 whitespace-nowrap">
-                <% mode_color =
-                  FileProcessorWeb.ExecutionController.mode_badge_color(execution.mode) %>
                 <span class={mode_color <> " px-2 py-1 rounded-full text-xs font-medium"}>
-                  {FileProcessorWeb.ExecutionController.mode_display_name(execution.mode)}
+                  {FileProcessor.ExecutionHelpers.mode_display_name(execution.mode)}
                 </span>
               </td>
-              
-<!-- Tiempo -->
+
+              <!-- Tiempo -->
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm font-mono text-gray-900 dark:text-white">
                   {execution.total_time} ms
                 </div>
                 <%= if execution.mode == "benchmark" do %>
-                  <% benchmark_data =
-                    FileProcessorWeb.ExecutionController.extract_benchmark_data(execution.result) %>
+                  <% benchmark_data = FileProcessor.ExecutionHelpers.extract_benchmark_data(execution.result) %>
                   <%= if benchmark_data do %>
                     <div class="text-xs text-purple-600 dark:text-purple-400 mt-1">
                       {benchmark_data.improvement}x mejora
@@ -233,8 +179,8 @@
                   <% end %>
                 <% end %>
               </td>
-              
-<!-- Estado -->
+
+              <!-- Estado -->
               <td class="px-6 py-4 whitespace-nowrap">
                 <% status_class =
                   if has_errors? do
@@ -246,8 +192,8 @@
                   {if has_errors?, do: "⚠️ Parcial", else: "✅ Completado"}
                 </span>
               </td>
-              
-<!-- Acciones -->
+
+              <!-- Acciones -->
               <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                 <div class="flex items-center space-x-3">
                   <.link
@@ -277,6 +223,7 @@
                   </.link>
                 </div>
               </td>
+
             </tr>
           <% end %>
         </tbody>
