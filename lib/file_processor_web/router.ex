@@ -27,11 +27,12 @@ defmodule FileProcessorWeb.Router do
     # IMPORTANTE: las rutas con segmentos fijos (/delete_all, /:id/download)
     # deben ir antes de las rutas con :id para que Phoenix no las interprete
     # como un id.
-    delete "/executions/delete_all",   ExecutionController, :delete_all
-    get    "/executions/:id/download", ExecutionController, :download
-    get    "/executions",              ExecutionController, :index
-    get    "/executions/:id",          ExecutionController, :show
-    delete "/executions/:id",          ExecutionController, :delete
+    delete "/executions/delete_all", ExecutionController, :delete_all
+    get "/executions/:id/download", ExecutionController, :download
+    live "/executions", ExecutionLive
+    # get "/executions", ExecutionController, :index   #Controller
+    get "/executions/:id", ExecutionController, :show
+    delete "/executions/:id", ExecutionController, :delete
   end
 
   if Application.compile_env(:file_processor, :dev_routes) do
