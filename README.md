@@ -43,40 +43,90 @@ Visita [`localhost:4000`](http://localhost:4000) desde el navegador. La ruta ra�
 ## Estructura del proyecto
 
 ```
-lib/
-├── file_processor/                   # Contexto y lógica de negocio
-│   ├── core_adapter.ex               # Puente entre Phoenix y el core Elixir puro
-│   ├── execution_helpers.ex          # Helpers de presentación (fechas, íconos, métricas)
-│   ├── executions.ex                 # Contexto Ecto — queries y filtros
-│   ├── executions/
-│   │   └── execution.ex              # Schema Ecto
-│   ├── report_builder.ex             # Construcción de reportes por modo
-│   └── repo.ex
-│
-├── procesador_archivos/              # Core de procesamiento (Elixir puro, sin Phoenix)
-│   ├── coordinador.ex                # Patrón Coordinator/Worker
-│   ├── worker.ex
-│   ├── procesador_archivos.ex        # Orquestador principal
-│   ├── csv_parser.ex
-│   ├── json_parser.ex
-│   ├── log_parser.ex
-│   └── procesar_con_manejo_errores.ex
-│
-└── file_processor_web/               # Capa web Phoenix
-    ├── live/
-    │   └── processing_live.ex        # LiveView — subida y procesamiento en tiempo real
-    ├── controllers/
-    │   ├── execution_controller.ex   # Historial y detalle (Phoenix controller)
-    │   ├── processing_controller.ex  # Fallback (pendiente migrar a LiveView)
-    │   └── execution_html/           # Templates del historial
-    │       ├── index.html.heex
-    │       └── show_with_styles.html.heex
-    ├── router.ex
-    └── endpoint.ex
-
 assets/
 └── js/
     └── app.js                        # Hook DropZone para drag & drop en LiveView
+
+file_processor_phoenix/
+│
+├── assets/                          # Recursos frontend (JS, CSS)
+│   ├── css/
+│   └── js/
+│       └── app.js                   # Inicializa LiveView, hooks JS y manejo de eventos en el navegador
+│
+├── config/                          # Configuración de la aplicación Phoenix
+│
+├── lib/
+│   │
+│   ├── file_processor/              # Contexto y lógica de negocio principal
+│   │   ├── application.ex           # Punto de inicio de la aplicación y supervisores
+│   │   ├── core_adapter.ex          # Conecta Phoenix con el procesador de archivos del core
+│   │   ├── coordinator.ex           # Coordina workers para procesamiento paralelo
+│   │   ├── worker.ex                # Worker que procesa archivos individuales
+│   │   ├── procesador_archivos.ex   # Orquestador principal del procesamiento de archivos
+│   │   ├── procesar_con_manejo_errores.ex # Procesamiento con captura y reporte de errores
+│   │   ├── csv_parser.ex            # Parser para archivos CSV
+│   │   ├── json_parser.ex           # Parser para archivos JSON
+│   │   ├── log_parser.ex            # Parser para archivos LOG
+│   │   ├── report_builder.ex        # Genera reportes a partir de los resultados del procesamiento
+│   │   ├── execution_helpers.ex     # Funciones auxiliares para métricas, formato de datos e íconos
+│   │   ├── executions.ex            # Contexto Ecto para consultar ejecuciones y aplicar filtros
+│   │   ├── repo.ex                  # Configuración del repositorio Ecto (acceso a base de datos)
+│   │   └── executions/
+│   │       └── execution.ex         # Schema Ecto que representa una ejecución en la base de datos
+│   │
+│   ├── file_processor_web/          # Capa web de Phoenix
+│   │   │
+│   │   ├── components/              # Componentes reutilizables de UI
+│   │   │   └── core_components.ex   # Componentes Phoenix como tablas, botones y alerts
+│   │   │
+│   │   ├── layouts/                 # Layouts globales de la aplicación
+│   │   │   ├── layouts.ex           # Define los layouts disponibles
+│   │   │   └── root.html.heex       # Layout principal de la aplicación
+│   │   │
+│   │   ├── controllers/             # Controladores HTTP tradicionales
+│   │   │   ├── execution_controller.ex   # Controlador para historial y detalle de ejecuciones
+│   │   │   ├── processing_controller.ex  # Controlador para procesamiento tradicional (fallback)
+│   │   │   ├── execution_html.ex         # Renderiza templates de ejecuciones
+│   │   │   ├── processing_html.ex        # Renderiza templates de procesamiento
+│   │   │   ├── page_controller.ex        # Controlador de páginas básicas
+│   │   │   ├── page_html.ex              # Templates de páginas básicas
+│   │   │   ├── error_html.ex             # Templates de errores HTML
+│   │   │   └── error_json.ex             # Respuestas de error en formato JSON
+│   │   │
+│   │   │   └── execution_html/
+│   │   │       ├── index.html.heex       # Vista del historial de ejecuciones
+│   │   │       └── show_with_styles.html.heex # Vista detallada de una ejecución con estilos
+│   │   │
+│   │   ├── live/                    # LiveViews para interfaces dinámicas
+│   │   │   ├── processing_live.ex        # LiveView para subir archivos y procesarlos en tiempo real
+│   │   │   ├── execution_live.ex         # LiveView que muestra el historial de ejecuciones
+│   │   │   ├── execution_live.html.heex  # Vista del historial usando LiveView
+│   │   │   ├── execution_show_live.ex    # LiveView para mostrar el detalle de una ejecución
+│   │   │   └── execution_show_live.html.heex # Vista del reporte detallado de ejecución
+│   │   │
+│   │   ├── router.ex                # Define rutas HTTP y LiveView de la aplicación
+│   │   ├── endpoint.ex              # Punto de entrada del servidor Phoenix
+│   │   ├── telemetry.ex             # Métricas y monitoreo de la aplicación
+│   │   └── gettext.ex               # Internacionalización (traducciones)
+│   │
+│   ├── file_processor.ex            # Módulo raíz del contexto principal
+│   └── file_processor_web.ex        # Helpers y macros para controllers, views y LiveViews
+│
+├── output/                          # Carpeta donde se guardan los reportes generados
+│
+├── priv/
+│   ├── repo/
+│   │   └── migrations/              # Migraciones de base de datos
+│   └── uploads/                     # Archivos subidos para procesamiento
+│
+├── test/                            # Pruebas unitarias y de integración
+│
+├── mix.exs                          # Configuración del proyecto y dependencias
+├── mix.lock                         # Versiones exactas de dependencias
+├── README.md                        # Documentación del proyecto
+├── CHANGELOG.md                     # Registro de cambios del proyecto
+└── .formatter.exs                   # Configuración de formateo de código
 ```
 
 ## Tests
