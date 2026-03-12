@@ -31,7 +31,8 @@ defmodule FileProcessorWeb.Router do
     get "/executions/:id/download", ExecutionController, :download
     live "/executions", ExecutionLive
     # get "/executions", ExecutionController, :index   #Controller
-    get "/executions/:id", ExecutionController, :show
+    live "/executions/:id", ExecutionShowLive
+    # get "/executions/:id", ExecutionController, :show  #Controller
     delete "/executions/:id", ExecutionController, :delete
   end
 

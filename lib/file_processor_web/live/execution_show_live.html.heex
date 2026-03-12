@@ -1,0 +1,255 @@
+<Layouts.app flash={@flash}>
+  <.header>
+    Reporte de Ejecución
+    <:subtitle>
+      {FileProcessorWeb.ExecutionHTML.format_datetime(@execution.timestamp)}
+    </:subtitle>
+
+    <:actions>
+      <.link navigate={~p"/executions"}>
+        <button class="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          <.icon name="hero-arrow-left" class="w-4 h-4" /> Volver al historial
+        </button>
+      </.link>
+
+      <.link href={~p"/executions/#{@execution.id}/download"}>
+        <button class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+          <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> Descargar TXT
+        </button>
+      </.link>
+    </:actions>
+  </.header>
+  
+<!-- TARJETAS DE RESUMEN -->
+
+  <% summary = @summary %>
+
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+      <div class="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase mb-2">
+        Modo
+      </div>
+
+      <div class="text-lg font-bold text-gray-900 dark:text-white">
+        <%= case @execution.mode do %>
+          <% "sequential" -> %>
+            📋 Secuencial
+          <% "parallel" -> %>
+            ⚡ Paralelo
+          <% "benchmark" -> %>
+            📊 Benchmark
+          <% _ -> %>
+            {@execution.mode}
+        <% end %>
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+      <div class="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase mb-2">
+        Archivos
+      </div>
+
+      <div class="text-3xl font-bold text-gray-900 dark:text-white">
+        {Map.get(summary, :total_files, 0)}
+      </div>
+
+      <div class="text-xs text-gray-400 mt-1">
+        procesados
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+      <div class="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase mb-2">
+        Tiempo total
+      </div>
+
+      <div class="text-3xl font-bold text-gray-900 dark:text-white">
+        {summary.total_time}
+      </div>
+
+      <div class="text-xs text-gray-400 mt-1">
+        ms
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+      <div class="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase mb-2">
+        Resultado
+      </div>
+
+      <div class="flex items-center gap-3 mt-1">
+        <span class="inline-flex items-center gap-1 text-green-600 dark:text-green-400 font-bold text-lg">
+          <.icon name="hero-check-circle" class="w-5 h-5" />
+          {summary.successes}
+        </span>
+
+        <%= if summary.errors > 0 do %>
+          <span class="inline-flex items-center gap-1 text-yellow-600 dark:text-yellow-400 font-bold text-lg">
+            <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+            {summary.errors}
+          </span>
+        <% end %>
+      </div>
+
+      <div class="text-xs mt-1">
+        <%= if summary.errors == 0 do %>
+          <span class="text-green-500 dark:text-green-400">
+            Completado exitosamente
+          </span>
+        <% else %>
+          <span class="text-yellow-500 dark:text-yellow-400">
+            Procesamiento parcial
+          </span>
+        <% end %>
+      </div>
+    </div>
+  </div>
+  
+<!-- BENCHMARK -->
+
+  <%= if @execution.mode == "benchmark" and @benchmark_data do %>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+        <.icon name="hero-chart-bar" class="w-5 h-5 text-purple-500" />
+        Benchmark: Secuencial vs Paralelo
+      </h2>
+      
+<!-- BADGE -->
+
+      <div class="flex justify-center mb-4">
+        <span class="inline-flex items-center gap-2 px-4 py-1 rounded-full text-sm font-medium
+                   bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+          ⚡
+          <%= if @benchmark_data.parallel_ms < @benchmark_data.sequential_ms do %>
+            Paralelo más rápido
+          <% else %>
+            Secuencial más rápido
+          <% end %>
+        </span>
+      </div>
+      
+<!-- GRÁFICA -->
+
+      <div class="mb-6">
+        <canvas
+          id="benchmarkChart"
+          data-secuencial={@benchmark_data.sequential_ms}
+          data-paralelo={@benchmark_data.parallel_ms}
+          height="120"
+        >
+        </canvas>
+      </div>
+      
+<!-- MÉTRICAS -->
+
+      <% seq = Map.get(@benchmark_data, :sequential_ms, 0) * 1.0
+      par = Map.get(@benchmark_data, :parallel_ms, 0) * 1.0
+
+      diff = Float.round(abs(seq - par), 2)
+
+      speedup =
+        cond do
+          seq == 0 or par == 0 ->
+            1
+
+          seq > par ->
+            Float.round(seq / par, 2)
+
+          true ->
+            Float.round(par / seq, 2)
+        end
+
+      efficiency =
+        if max(seq, par) > 0 do
+          Float.round(diff / max(seq, par) * 100, 2)
+        else
+          0
+        end %>
+
+      <div class="grid grid-cols-3 gap-6 mt-4 text-center">
+        <div>
+          <div class="text-xs uppercase text-gray-500 dark:text-gray-400 mb-1">
+            Factor de mejora
+          </div>
+
+          <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">
+            {speedup}x
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs uppercase text-gray-500 dark:text-gray-400 mb-1">
+            Diferencia
+          </div>
+
+          <div class="text-2xl font-bold text-gray-900 dark:text-white">
+            {diff} ms
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs uppercase text-gray-500 dark:text-gray-400 mb-1">
+            Eficiencia
+          </div>
+
+          <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">
+            {efficiency}%
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
+  
+<!-- RESULTADOS POR ARCHIVO -->
+
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+      <.icon name="hero-document-text" class="w-5 h-5 text-blue-500" /> Resultados por archivo
+    </h2>
+
+    <div class="space-y-3">
+      <%= for file_info <- @files do %>
+        <details class="group bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600 overflow-hidden">
+          <summary class="flex items-center gap-3 p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors list-none">
+            <.icon
+              name="hero-chevron-right"
+              class="w-4 h-4 text-gray-400 transition-transform group-open:rotate-90"
+            />
+
+            <span class="text-2xl">
+              {FileProcessorWeb.ExecutionHTML.file_icon(file_info.extension)}
+            </span>
+
+            <span class="flex-1 font-mono text-sm font-medium text-gray-900 dark:text-white truncate">
+              {file_info.name}
+            </span>
+
+            <%= if file_info.has_error do %>
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
+                           bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                <.icon name="hero-exclamation-triangle" class="w-3 h-3" /> Parcial
+              </span>
+            <% else %>
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
+                           bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                <.icon name="hero-check" class="w-3 h-3" /> Éxito
+              </span>
+            <% end %>
+          </summary>
+
+          <div class="px-4 pb-4">
+            <pre class="whitespace-pre-wrap font-mono text-xs
+                       bg-gray-50 dark:bg-gray-900
+                       text-gray-800 dark:text-gray-300
+                       p-4 rounded-lg border border-gray-200 dark:border-gray-700
+                       overflow-x-auto max-h-64 overflow-y-auto">
+
+{file_info.details}
+
+            </pre>
+          </div>
+        </details>
+      <% end %>
+    </div>
+  </div>
+</Layouts.app>

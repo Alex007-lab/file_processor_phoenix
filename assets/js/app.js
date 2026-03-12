@@ -77,22 +77,33 @@ function renderBenchmarkChart() {
     const canvas = document.getElementById("benchmarkChart");
     if (!canvas) return;
 
-    const sec = parseFloat(canvas.dataset.secuencial || 0);
+    const seq = parseFloat(canvas.dataset.secuencial || 0);
     const par = parseFloat(canvas.dataset.paralelo || 0);
 
     if (benchmarkChartInstance) {
         benchmarkChartInstance.destroy();
     }
 
+    const isDark = document.documentElement.dataset.theme === "dark";
+    const gridColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+    const labelColor = isDark ? "#d1d5db" : "#374151";
+
     benchmarkChartInstance = new Chart(canvas, {
         type: "bar",
         data: {
-            labels: ["Secuencial", "Paralelo"],
+            labels: ["📋 Secuencial", "⚡ Paralelo"],
             datasets: [
                 {
                     label: "Tiempo (ms)",
-                    data: [sec, par],
-                    borderWidth: 1,
+                    data: [seq, par],
+                    backgroundColor: [
+                        "rgba(59,130,246,0.8)",
+                        "rgba(34,197,94,0.8)",
+                    ],
+                    borderColor: ["rgba(59,130,246,1)", "rgba(34,197,94,1)"],
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    borderSkipped: false,
                 },
             ],
         },
@@ -103,10 +114,30 @@ function renderBenchmarkChart() {
             },
             plugins: {
                 legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => ` ${ctx.parsed.y} ms`,
+                    },
+                },
             },
             scales: {
+                x: {
+                    grid: { color: gridColor },
+                    ticks: {
+                        color: labelColor,
+                        font: {
+                            size: 13,
+                            weight: "600",
+                        },
+                    },
+                },
                 y: {
                     beginAtZero: true,
+                    grid: { color: gridColor },
+                    ticks: {
+                        color: labelColor,
+                        callback: (val) => val + " ms",
+                    },
                 },
             },
         },
