@@ -6,12 +6,55 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.
 
 ---
 
-## [Unreleased] — Tests
+## [0.7.0] — 2026-03-15 — Tests
 > 👤 Alex Gomez
 
-### Pendiente de commit
+### Añadido
 
-- Tests por agregar
+- `test/file_processor/report_builder_test.exs` — tests para `build_sequential/2`,
+  `build_parallel/2` y `build_benchmark/2`: formato por tipo de archivo (CSV,
+  JSON, LOG), conteo de exitosos/parciales/errores, tiempos, estado parcial,
+  ganador del benchmark.
+
+- `test/file_processor_web/execution_html_test.exs` — tests para `file_icon/1`,
+  `format_datetime/1`, `format_date/1`, `format_time/1`, `extract_metrics/2`,
+  `parse_execution_files/1` y `extract_benchmark_data/1`.
+
+- `test/file_processor_web/live/execution_live_test.exs` — tests de LiveView
+  para el historial: mount, filtros reactivos por modo (sequential/parallel/
+  benchmark/todos), modal de confirmación (abrir, cancelar con botón,
+  confirmar eliminación individual y total).
+
+- `test/file_processor_web/live/execution_show_live_test.exs` — tests de
+  LiveView para el reporte: mount con cada tipo de archivo, tarjetas de resumen,
+  métricas CSV/JSON/LOG, sección benchmark, badge Parcial/Completado,
+  navegación (volver, descargar), 404 para id inexistente.
+
+### Cambiado
+
+- `test/support/fixtures/executions_fixtures.ex` — `"some mode"` reemplazado
+  por `"sequential"`. Añadidos fixtures `execution_fixture_parallel/1`,
+  `execution_fixture_benchmark/1` y `execution_fixture_partial/1`.
+
+- `test/file_processor/executions_test.exs` — añadidos tests para
+  `list_executions_filtered/1` (por modo, por fecha, combinado, sin resultados,
+  filtros desconocidos) y `get_statistics/0` (ceros, conteo por modo, promedio
+  de tiempo).
+
+- `test/file_processor_web/controllers/execution_controller_test.exs` —
+  reescrito completamente. Eliminados tests de rutas inexistentes (`new`,
+  `create`, `edit`, `update`). Cubre solo `download`, `delete` y `delete_all`.
+  Corregido `get_flash/2` deprecado por `Phoenix.Flash.get/2`.
+
+- `test/file_processor_web/controllers/page_controller_test.exs` — corregido
+  para verificar redirección a `/processing` en lugar de texto genérico de
+  Phoenix por defecto.
+
+### Corregido
+
+- Selector ambiguo `[phx-click='cancel_modal']` en `execution_live_test.exs`
+  — el modal tiene backdrop y botón con el mismo atributo. Corregido a
+  `button[phx-click='cancel_modal']`.
 
 ---
 

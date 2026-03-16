@@ -1,24 +1,42 @@
 defmodule FileProcessor.ExecutionsFixtures do
   @moduledoc """
-  This module defines test helpers for creating
-  entities via the `FileProcessor.Executions` context.
+  Helpers para crear ejecuciones en tests.
   """
 
-  @doc """
-  Generate a execution.
-  """
+  alias FileProcessor.Executions
+
   def execution_fixture(attrs \\ %{}) do
     {:ok, execution} =
       attrs
       |> Enum.into(%{
-        files: "some files",
-        mode: "some mode",
-        result: "some result",
-        timestamp: ~U[2026-02-14 06:39:00Z],
+        files:      "ventas.csv",
+        mode:       "sequential",
+        result:     "• Estado: éxito\n• Registros válidos: 10",
+        status:     "success",
+        timestamp:  ~U[2026-02-14 06:39:00Z],
         total_time: 42
       })
-      |> FileProcessor.Executions.create_execution()
+      |> Executions.create_execution()
 
     execution
+  end
+
+  def execution_fixture_parallel(attrs \\ %{}) do
+    execution_fixture(Map.merge(%{mode: "parallel", files: "usuarios.json"}, attrs))
+  end
+
+  def execution_fixture_benchmark(attrs \\ %{}) do
+    execution_fixture(Map.merge(%{
+      mode:   "benchmark",
+      files:  "ventas.csv",
+      result: "📈 Secuencial: 100 ms\n⚡ Paralelo:    60 ms"
+    }, attrs))
+  end
+
+  def execution_fixture_partial(attrs \\ %{}) do
+    execution_fixture(Map.merge(%{
+      status: "partial",
+      result: "• Estado: parcial\n• Registros válidos: 3"
+    }, attrs))
   end
 end
