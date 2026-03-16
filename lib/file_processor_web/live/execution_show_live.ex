@@ -8,8 +8,9 @@ defmodule FileProcessorWeb.ExecutionShowLive do
   def mount(%{"id" => id}, _session, socket) do
     execution = Executions.get_execution!(id)
 
-    summary = get_execution_summary(execution)
-    files = parse_execution_files(execution)
+    # Parseamos una sola vez y reutilizamos para el summary
+    files   = ExecutionHTML.parse_execution_files(execution)
+    summary = build_summary(execution, files)
 
     benchmark_data =
       if execution.mode == "benchmark" do
@@ -26,34 +27,20 @@ defmodule FileProcessorWeb.ExecutionShowLive do
      |> assign(:benchmark_data, benchmark_data)}
   end
 
-  # -----------------------------
-  # Helpers que antes estaban en controller
-  # -----------------------------
+  # ---------------------------------------------------------------------------
+  # Privadas
+  # ---------------------------------------------------------------------------
 
-  defp get_execution_summary(execution) do
-    files = parse_execution_files(execution)
-
-    real_files =
-      execution.files
-      |> String.split(",")
-      |> Enum.map(&String.trim/1)
-
-    successes =
-      Enum.count(files, fn f -> not f.has_error end)
-
-    errors =
-      Enum.count(files, fn f -> f.has_error end)
+  defp build_summary(execution, files) do
+    total_files = execution.files |> String.split(",") |> Enum.map(&String.trim/1) |> length()
+    successes   = Enum.count(files, fn f -> not f.has_error end)
+    errors      = Enum.count(files, fn f -> f.has_error end)
 
     %{
-      total_files: length(real_files),
-      total_time: execution.total_time,
-      successes: successes,
-      errors: errors
+      total_files: total_files,
+      total_time:  execution.total_time,
+      successes:   successes,
+      errors:      errors
     }
-  end
-
-  defp parse_execution_files(execution) do
-    # reutiliza helper
-    ExecutionHTML.parse_execution_files(execution)
   end
 end
