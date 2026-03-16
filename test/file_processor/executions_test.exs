@@ -73,7 +73,7 @@ defmodule FileProcessor.ExecutionsTest do
 
   describe "update_execution/2" do
     test "actualiza ejecución con datos válidos" do
-      execution   = execution_fixture()
+      execution    = execution_fixture()
       update_attrs = %{mode: "parallel", total_time: 99, status: "partial"}
 
       assert {:ok, %Execution{} = updated} = Executions.update_execution(execution, update_attrs)
@@ -122,7 +122,7 @@ defmodule FileProcessor.ExecutionsTest do
 
   describe "list_executions_filtered/1" do
     test "filtra por modo sequential" do
-      seq = execution_fixture(%{mode: "sequential"})
+      seq  = execution_fixture(%{mode: "sequential"})
       _par = execution_fixture_parallel()
 
       result = Executions.list_executions_filtered(mode: "sequential")
@@ -149,8 +149,8 @@ defmodule FileProcessor.ExecutionsTest do
     end
 
     test "filtra por rango de fechas" do
-      _old    = execution_fixture(%{timestamp: ~U[2026-01-01 00:00:00Z]})
-      recent  = execution_fixture(%{timestamp: ~U[2026-03-10 12:00:00Z]})
+      _old   = execution_fixture(%{timestamp: ~U[2026-01-01 00:00:00Z]})
+      recent = execution_fixture(%{timestamp: ~U[2026-03-10 12:00:00Z]})
 
       result = Executions.list_executions_filtered(
         date_start: ~U[2026-03-01 00:00:00Z],
@@ -162,9 +162,9 @@ defmodule FileProcessor.ExecutionsTest do
     end
 
     test "combina filtro de modo y fecha" do
-      _seq_old  = execution_fixture(%{mode: "sequential", timestamp: ~U[2026-01-01 00:00:00Z]})
-      _par_new  = execution_fixture(%{mode: "parallel",   timestamp: ~U[2026-03-10 12:00:00Z]})
-      seq_new   = execution_fixture(%{mode: "sequential", timestamp: ~U[2026-03-10 12:00:00Z]})
+      _seq_old = execution_fixture(%{mode: "sequential", timestamp: ~U[2026-01-01 00:00:00Z]})
+      _par_new = execution_fixture(%{mode: "parallel",   timestamp: ~U[2026-03-10 12:00:00Z]})
+      seq_new  = execution_fixture(%{mode: "sequential", timestamp: ~U[2026-03-10 12:00:00Z]})
 
       result = Executions.list_executions_filtered(
         mode:       "sequential",
@@ -227,6 +227,55 @@ defmodule FileProcessor.ExecutionsTest do
 
     test "avg_time es 0 cuando no hay ejecuciones" do
       assert Executions.get_statistics().avg_time == 0
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Paginación
+  # ---------------------------------------------------------------------------
+
+  describe "list_executions_paginated/3" do
+    test "devuelve la primera página correctamente" do
+      for _ <- 1..15, do: execution_fixture()
+
+      result = Executions.list_executions_paginated([], 1, 10)
+      assert length(result.entries) == 10
+      assert result.page            == 1
+      assert result.per_page        == 10
+      assert result.total           == 15
+      assert result.total_pages     == 2
+    end
+
+    test "devuelve la segunda página con los registros restantes" do
+      for _ <- 1..15, do: execution_fixture()
+
+      result = Executions.list_executions_paginated([], 2, 10)
+      assert length(result.entries) == 5
+      assert result.page            == 2
+    end
+
+    test "total_pages es 1 cuando no hay registros" do
+      result = Executions.list_executions_paginated([], 1, 10)
+      assert result.total_pages == 1
+      assert result.entries     == []
+    end
+
+    test "respeta filtros junto con la paginación" do
+      for _ <- 1..5, do: execution_fixture(%{mode: "sequential"})
+      for _ <- 1..3, do: execution_fixture_parallel()
+
+      result = Executions.list_executions_paginated([mode: "sequential"], 1, 10)
+      assert result.total == 5
+      assert Enum.all?(result.entries, &(&1.mode == "sequential"))
+    end
+
+    test "ordena por timestamp descendente" do
+      e1 = execution_fixture(%{timestamp: ~U[2026-01-01 00:00:00Z]})
+      e2 = execution_fixture(%{timestamp: ~U[2026-03-01 00:00:00Z]})
+
+      result = Executions.list_executions_paginated([], 1, 10)
+      assert hd(result.entries).id      == e2.id
+      assert List.last(result.entries).id == e1.id
     end
   end
 end

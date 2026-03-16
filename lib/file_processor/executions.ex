@@ -45,6 +45,43 @@ defmodule FileProcessor.Executions do
   end
 
   @doc """
+  Devuelve ejecuciones paginadas con los filtros aplicados.
+
+  ## Parámetros
+
+    - `filters` — mismos filtros que `list_executions_filtered/1`
+    - `page`     — página actual (base 1)
+    - `per_page` — registros por página
+
+  ## Retorna
+
+      %{
+        entries:    [%Execution{}],
+        page:       integer,
+        per_page:   integer,
+        total:      integer,
+        total_pages: integer
+      }
+  """
+  def list_executions_paginated(filters \\ [], page \\ 1, per_page \\ 10) do
+    base_query =
+      Execution
+      |> apply_filters(filters)
+      |> order_by([e], desc: e.timestamp)
+
+    total   = Repo.aggregate(base_query, :count, :id)
+    entries = base_query |> limit(^per_page) |> offset(^((page - 1) * per_page)) |> Repo.all()
+
+    %{
+      entries:     entries,
+      page:        page,
+      per_page:    per_page,
+      total:       total,
+      total_pages: max(1, ceil(total / per_page))
+    }
+  end
+
+  @doc """
   Obtiene una ejecución por id.
   Lanza `Ecto.NoResultsError` si no existe.
   """

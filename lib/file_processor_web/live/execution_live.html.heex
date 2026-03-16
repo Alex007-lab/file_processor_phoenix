@@ -246,6 +246,72 @@
         <% end %>
       </tbody>
     </table>
+
+    <%!-- Paginación --%>
+    <%= if @total_pages > 1 do %>
+      <div class="flex items-center justify-between px-6 py-4 border-t border-gray-100 dark:border-gray-700">
+
+        <%!-- Info --%>
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+          Página {@page} de {@total_pages}
+          <span class="text-gray-400 dark:text-gray-600 mx-1">·</span>
+          {@total_count} ejecuciones
+        </p>
+
+        <%!-- Controles --%>
+        <div class="flex items-center gap-1">
+
+          <%!-- Anterior --%>
+          <button
+            phx-click="prev_page"
+            disabled={@page <= 1}
+            class={[
+              "inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors",
+              if(@page <= 1,
+                do: "text-gray-300 dark:text-gray-600 cursor-not-allowed",
+                else: "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              )
+            ]}
+          >
+            <.icon name="hero-chevron-left" class="w-4 h-4" /> Anterior
+          </button>
+
+          <%!-- Números de página --%>
+          <%= for p <- max(1, @page - 2)..min(@total_pages, @page + 2) do %>
+            <button
+              phx-click="go_to_page"
+              phx-value-page={p}
+              class={[
+                "w-8 h-8 text-sm font-medium rounded-lg transition-colors",
+                if(p == @page,
+                  do: "bg-blue-600 text-white",
+                  else: "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                )
+              ]}
+            >
+              {p}
+            </button>
+          <% end %>
+
+          <%!-- Siguiente --%>
+          <button
+            phx-click="next_page"
+            disabled={@page >= @total_pages}
+            class={[
+              "inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors",
+              if(@page >= @total_pages,
+                do: "text-gray-300 dark:text-gray-600 cursor-not-allowed",
+                else: "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              )
+            ]}
+          >
+            Siguiente <.icon name="hero-chevron-right" class="w-4 h-4" />
+          </button>
+
+        </div>
+      </div>
+    <% end %>
+
   </div>
 <!-- MODAL DE CONFIRMACIÓN -->
 <%= if @modal do %>

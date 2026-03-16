@@ -6,6 +6,42 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.
 
 ---
 
+## [0.8.0] — 2026-03-15 — Paginación en tiempo real
+> 👤 Alex Gomez
+
+### Añadido
+
+- `Executions.list_executions_paginated/3` — nueva función que recibe filtros,
+  página y tamaño de página. Ejecuta un `COUNT` y un `SELECT` con `LIMIT`/
+  `OFFSET`. Devuelve `%{entries, page, per_page, total, total_pages}`.
+
+- `ExecutionLive` — tres nuevos eventos: `prev_page`, `next_page` y
+  `go_to_page`. Al filtrar siempre resetea a página 1. Al eliminar el último
+  registro de una página retrocede automáticamente una página.
+
+- `execution_live.html.heex` — footer de paginación debajo de la tabla:
+  muestra "Página X de Y · N ejecuciones", botones Anterior/Siguiente
+  deshabilitados en los extremos, y números de página en rango ±2 alrededor
+  de la página actual. Solo visible cuando `total_pages > 1`.
+
+- `test/file_processor/executions_test.exs` — 5 tests para
+  `list_executions_paginated/3`: primera página, segunda página, sin registros,
+  filtros combinados con paginación, orden descendente.
+
+- `test/file_processor_web/live/execution_live_test.exs` — 5 tests de LiveView
+  para los controles de paginación: sin controles con ≤10 ejecuciones, controles
+  visibles con >10, navegar a siguiente, navegar a anterior, resetear a página 1
+  al filtrar.
+
+### Cambiado
+
+- `ExecutionLive` — `build_filters/1` centraliza la construcción de filtros
+  para reutilizarla en eventos de filtrado, paginación y eliminación.
+  `assign_pagination/2` centraliza la asignación de assigns de paginación
+  (`executions`, `page`, `total_pages`, `total_count`).
+
+---
+
 ## [0.7.0] — 2026-03-15 — Tests
 > 👤 Alex Gomez
 
@@ -42,18 +78,15 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.
   de tiempo).
 
 - `test/file_processor_web/controllers/execution_controller_test.exs` —
-  reescrito completamente. Eliminados tests de rutas inexistentes (`new`,
-  `create`, `edit`, `update`). Cubre solo `download`, `delete` y `delete_all`.
+  reescrito completamente. Cubre solo `download`, `delete` y `delete_all`.
   Corregido `get_flash/2` deprecado por `Phoenix.Flash.get/2`.
 
 - `test/file_processor_web/controllers/page_controller_test.exs` — corregido
-  para verificar redirección a `/processing` en lugar de texto genérico de
-  Phoenix por defecto.
+  para verificar redirección a `/processing`.
 
 ### Corregido
 
-- Selector ambiguo `[phx-click='cancel_modal']` en `execution_live_test.exs`
-  — el modal tiene backdrop y botón con el mismo atributo. Corregido a
+- Selector ambiguo `[phx-click='cancel_modal']` corregido a
   `button[phx-click='cancel_modal']`.
 
 ---
@@ -64,48 +97,32 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.
 ### Añadido
 
 - `execution_live.ex` — modal de confirmación LiveView para eliminar ejecuciones.
-  Cuatro nuevos eventos: `confirm_delete`, `confirm_delete_all`, `cancel_modal`,
-  `delete`, `delete_all`. El modal muestra contenido distinto para eliminar uno
-  vs limpiar todo. Se cierra con `Escape` o click en backdrop. Reemplaza
+  Eventos: `confirm_delete`, `confirm_delete_all`, `cancel_modal`, `delete`,
+  `delete_all`. Se cierra con `Escape` o click en backdrop. Reemplaza
   `data-confirm` nativo del browser.
 
 ### Cambiado
 
-- `execution_live.html.heex` — botones de eliminar migrados de `<.link
-  method="delete" data-confirm>` a `phx-click="confirm_delete"`. Modal añadido
-  al final del template con backdrop blur, ícono de advertencia, mensaje
-  contextual y botones Cancelar / Confirmar.
+- `execution_live.html.heex` — botones de eliminar migrados a `phx-click`.
+  Modal con backdrop blur, ícono de advertencia y botones Cancelar / Confirmar.
 
-- `execution_show_live.html.heex` — rediseño UX completo del reporte:
-  - Tarjetas de resumen con gradiente y color semántico por modo (azul/verde/
-    morado/naranja/esmeralda)
-  - Métricas visuales por tipo de archivo: CSV (registros, productos, ventas),
-    JSON (usuarios, activos, sesiones), LOG (total + 5 niveles con color
-    semántico por severidad)
-  - Collapses con `divide-y` y fondo diferenciado al expandir
-  - `<pre>` de salida completa con borde de color según estado del archivo
+- `execution_show_live.html.heex` — rediseño UX: tarjetas con gradiente y color
+  semántico por modo, métricas visuales por tipo (CSV/JSON/LOG), collapses con
+  `divide-y`, `<pre>` con borde de color según estado.
 
-- `execution_controller.ex` — eliminadas acciones `index` y `show` (migradas a
-  LiveView). Solo conserva `download`, `delete` y `delete_all`.
+- `execution_controller.ex` — eliminadas acciones `index` y `show`. Solo
+  conserva `download`, `delete` y `delete_all`.
 
-- `execution_html.ex` — eliminadas funciones duplicadas del controller. Solo
-  conserva las que usan los LiveViews: `parse_execution_files/1`,
-  `extract_file_section/1`, `extract_metrics/2`, `get_execution_summary/1`,
-  `extract_benchmark_data/1`, `file_icon/1`, helpers de formato y modo.
+- `execution_html.ex` — eliminadas funciones duplicadas del controller.
 
 ### Corregido
 
-- Comentarios `<%#` migrados a `<%!-- --%>` (sintaxis deprecated en HEEx 1.7+).
+- Comentarios `<%#` migrados a `<%!-- --%>`.
 
 ### Eliminado
 
-- `controllers/execution_html/show_with_styles.html.heex` — huérfano tras
-  migración a `ExecutionShowLive`
-- `controllers/execution_html/index.html.heex` — huérfano tras migración a
-  `ExecutionLive`
-- `controllers/processing_controller.ex` — reemplazado por `ProcessingLive`
-- `controllers/processing_html.ex` — módulo del controller eliminado
-- `controllers/processing_html/new.html.heex` — template del controller eliminado
+- `show_with_styles.html.heex`, `index.html.heex` (controllers)
+- `processing_controller.ex`, `processing_html.ex`, `processing_html/new.html.heex`
 
 ---
 
@@ -114,32 +131,19 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.
 
 ### Añadido
 
-- `lib/file_processor_web/live/execution_live.ex` — LiveView para historial de
-  ejecuciones. Filtros reactivos por modo (`sequential`, `parallel`, `benchmark`)
-  y por fecha (`today`, `week`) mediante `handle_event("filter")` sin recargar.
+- `execution_live.ex` + `execution_live.html.heex` — LiveView para historial
+  con filtros reactivos por modo y fecha.
 
-- `lib/file_processor_web/live/execution_live.html.heex` — template del historial:
-  dashboard de estadísticas por modo, filtros con estado activo visual, tabla con
-  badge de estado (`success`/`partial`/`error`), acciones por fila.
+- `execution_show_live.ex` + `execution_show_live.html.heex` — LiveView para
+  detalle de ejecución con collapses y gráfica Chart.js.
 
-- `lib/file_processor_web/live/execution_show_live.ex` — LiveView para detalle
-  de ejecución con collapses interactivos `<details>/<summary>` por archivo.
-
-- `lib/file_processor_web/live/execution_show_live.html.heex` — template del
-  reporte: tarjetas de resumen, gráfica Chart.js con `data-secuencial`/
-  `data-paralelo` en el canvas, badge de estado por archivo.
-
-- `assets/js/app.js` — `renderBenchmarkChart` lee `data-*` del canvas en lugar
-  de `<script>` inline — compatible con LiveView. Se dispara en
-  `DOMContentLoaded` y `phx:page-loading-stop`.
+- `app.js` — `renderBenchmarkChart` con `data-*` en canvas, compatible con
+  LiveView.
 
 ### Cambiado
 
-- `router.ex` — rutas `/executions` y `/executions/:id` migradas de controllers
-  a LiveView (`ExecutionLive` y `ExecutionShowLive`). Controllers conservados
-  solo para `delete`, `delete_all` y `download`.
-
-- `README.md` — estructura del proyecto actualizada con los nuevos módulos LiveView.
+- `router.ex` — `/executions` y `/executions/:id` migradas a LiveView.
+- `README.md` — estructura actualizada.
 
 ---
 
@@ -148,55 +152,27 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.
 
 ### Añadido
 
-- `lib/file_processor_web/live/processing_live.ex` — LiveView completo para
-  procesamiento de archivos. Reemplaza `ProcessingController` como punto de
-  entrada principal. Incluye:
-  - Subida de archivos con `allow_upload` (`auto_upload: true`, hasta 10 archivos,
-    10 MB por archivo, formatos CSV/JSON/LOG)
-  - Drag & drop con Hook `DropZone` en `app.js`
-  - Feedback en tiempo real por archivo (`:pending → :processing → :success/:partial/:error`)
-  - Selector de modo con indicador visual activo (✓) y `aria-pressed`
-  - Zona de drop con estado dinámico — cambia al seleccionar archivos
-  - Barra de progreso de subida con porcentaje y estado "Listo" al completar
-  - Persistencia automática en BD al finalizar con `finalize_execution/1`
-  - Medición real de `total_time` con `System.monotonic_time`
-  - Orden de archivos preservado usando lista de tuplas en lugar de mapa
-  - `result_success?/1` y `result_partial?/1` que manejan los dos formatos
-    del core (`%{status: :success}` y `%{estado: :completo}`)
+- `processing_live.ex` — LiveView completo para procesamiento: subida, drag &
+  drop, feedback en tiempo real, tres estados (`:success`/`:partial`/`:error`),
+  persistencia en BD.
 
-- `assets/js/app.js` — Hook `DropZone` para drag & drop. Solo maneja feedback
-  visual — deja que LiveView procese el evento `drop` de forma nativa.
-
-- `core_adapter.ex` — `enrich_result/2`: detecta resultados parciales que el
-  core reporta como `:success` pero que contienen líneas/registros inválidos.
-  Para CSV compara `valid_records` vs total de líneas del archivo; para JSON
-  detecta métricas en cero con archivo no vacío.
+- `core_adapter.ex` — `enrich_result/2`: detecta archivos parcialmente corruptos
+  sin modificar el core.
 
 ### Cambiado
 
-- `execution_html.ex` — añadidas funciones de presentación, `parse_execution_files/1`
-  detecta modo benchmark, `get_execution_summary/1` usa `Regex.scan`,
-  `extract_benchmark_data/1` reconoce prefijos emoji.
+- `execution_html.ex`, `report_builder.ex`, `processing_live.ex` — soporte para
+  estado `partial` en todo el pipeline.
 
-- `report_builder.ex` — `format_file_result/1` acepta `:partial` y escribe
-  `• Estado: parcial`. Añadido `status_label/1`. Eliminada cláusula `_`
-  inalcanzable detectada por Dialyzer.
+- `index.html.heex`, `show_with_styles.html.heex` — rediseño UX con Tailwind
+  puro y Chart.js 4.4.
 
-- `processing_live.ex` — `finalize_execution/1` distingue tres estados:
-  `"success"` / `"partial"` / `"error"`.
-
-- `index.html.heex` — rediseño UX completo con gradientes, filtros reactivos,
-  badges con heroicons. Botón "Historial" en header de `ProcessingLive`.
-
-- `show_with_styles.html.heex` — Tailwind puro, Chart.js 4.4, dark mode.
-
-- `config/config.exs` — registrado MIME type `text/plain` para `.log`.
+- `config/config.exs` — MIME type `text/plain` para `.log`.
 
 ### Corregido
 
-- Benchmark no guardaba en BD, archivos corruptos marcados "Éxito",
-  "No se encontraron resultados" en benchmark, estado "Parcial" incorrecto
-  en ejecuciones exitosas.
+- Benchmark no guardaba en BD, archivos corruptos marcados "Éxito", gráfica sin
+  datos, estado "Parcial" incorrecto en ejecuciones exitosas.
 
 ---
 
@@ -205,29 +181,18 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.
 
 ### Añadido
 
-- `lib/file_processor/execution_helpers.ex` — módulo centralizado con funciones
-  de presentación sin dependencias de Phoenix.
-
-- `lib/file_processor/report_builder.ex` — construcción de reportes por modo
-  (`build_sequential/2`, `build_parallel/2`, `build_benchmark/2`).
+- `execution_helpers.ex` — helpers de presentación sin dependencias de Phoenix.
+- `report_builder.ex` — construcción de reportes por modo.
 
 ### Cambiado
 
-- `core_adapter.ex` — `process_sequential/1` usa `ProcesadorArchivos.process_file/1`.
-  Limpieza automática de `output/`.
-
-- `executions.ex` — `get_statistics/0` con una sola query `group_by`.
-  `list_executions_filtered/1` con filtros encadenados.
-
-- `execution_controller.ex` — eliminadas 12 funciones de presentación.
-
-- `router.ex` — rutas explícitas, orden corregido.
+- `core_adapter.ex`, `executions.ex`, `execution_controller.ex`, `router.ex` —
+  separación de responsabilidades, queries optimizadas, rutas explícitas.
 
 ### Eliminado
 
-- `show.html.heex`, `new.html.heex`, `edit.html.heex`, `execution_form.html.heex`
-- `CoreAdapter.extract_benchmark_summary/1`
-- Datos hardcodeados del benchmark
+- Templates huérfanos (`show.html.heex`, `new.html.heex`, `edit.html.heex`,
+  `execution_form.html.heex`), datos hardcodeados del benchmark.
 
 ---
 
@@ -237,21 +202,14 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.
 ### Añadido
 > 👤 Alex Gomez
 
-- Interfaz web con Phoenix Framework y Tailwind CSS
-- Adaptador `CoreAdapter` para conectar Phoenix con el core Elixir puro
-- Historial de ejecuciones con filtros por modo y fecha
-- Descarga de reportes en formato `.txt`
-- Soporte para subida de múltiples archivos simultáneos
-- Gráfica comparativa de benchmark con Chart.js
+- Interfaz web con Phoenix Framework y Tailwind CSS, `CoreAdapter`, historial
+  con filtros, descarga de reportes, gráfica de benchmark con Chart.js.
 
 ### Corregido
 > 👤 Sharon Anette
 
-- Extracción correcta de resultados en modos secuencial y paralelo
-- Manejo de directorio temporal y limpieza para benchmark
-- Persistencia de archivos entre ejecuciones
-- Descarga de reportes de error en formato ZIP
-- Mejoras de diseño en la interfaz
+- Resultados secuencial/paralelo, directorio temporal benchmark, persistencia
+  de archivos, descarga en ZIP, mejoras de diseño.
 
 ---
 
@@ -260,8 +218,6 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.
 
 ### Añadido
 
-- Proyecto Phoenix inicializado con el core `ProcesadorArchivos` copiado intacto
-- Core de procesamiento en Elixir puro: parsers CSV, JSON y LOG
-- Tres modos: secuencial, paralelo y benchmark
-- Interfaz CLI con `OptionParser`
-- Patrón Coordinator/Worker para procesamiento paralelo
+- Proyecto Phoenix con core `ProcesadorArchivos` intacto: parsers CSV/JSON/LOG,
+  modos secuencial/paralelo/benchmark, CLI con `OptionParser`, patrón
+  Coordinator/Worker.

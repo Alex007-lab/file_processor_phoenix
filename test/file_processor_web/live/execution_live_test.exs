@@ -86,6 +86,57 @@ defmodule FileProcessorWeb.ExecutionLiveTest do
   end
 
   # ---------------------------------------------------------------------------
+  # Paginación
+  # ---------------------------------------------------------------------------
+
+  describe "paginación" do
+    test "no muestra controles si hay 10 o menos ejecuciones", %{conn: conn} do
+      for _ <- 1..5, do: execution_fixture()
+
+      {:ok, _view, html} = live(conn, ~p"/executions")
+      refute html =~ "Siguiente"
+      refute html =~ "Anterior"
+    end
+
+    test "muestra controles si hay más de 10 ejecuciones", %{conn: conn} do
+      for _ <- 1..11, do: execution_fixture()
+
+      {:ok, _view, html} = live(conn, ~p"/executions")
+      assert html =~ "Siguiente"
+      assert html =~ "Página 1 de 2"
+    end
+
+    test "navega a la página siguiente", %{conn: conn} do
+      for _ <- 1..11, do: execution_fixture()
+
+      {:ok, view, _html} = live(conn, ~p"/executions")
+      html = view |> element("button", "Siguiente") |> render_click()
+
+      assert html =~ "Página 2 de 2"
+    end
+
+    test "navega a la página anterior", %{conn: conn} do
+      for _ <- 1..11, do: execution_fixture()
+
+      {:ok, view, _html} = live(conn, ~p"/executions")
+      view |> element("button", "Siguiente") |> render_click()
+      html = view |> element("button", "Anterior") |> render_click()
+
+      assert html =~ "Página 1 de 2"
+    end
+
+    test "al filtrar resetea a página 1", %{conn: conn} do
+      for _ <- 1..11, do: execution_fixture(%{mode: "sequential"})
+
+      {:ok, view, _html} = live(conn, ~p"/executions")
+      view |> element("button", "Siguiente") |> render_click()
+      html = view |> element("button", "Secuencial") |> render_click()
+
+      assert html =~ "Página 1 de"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # Modal de eliminación
   # ---------------------------------------------------------------------------
 
