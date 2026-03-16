@@ -9,7 +9,8 @@ Aplicación Phoenix para procesar archivos de datos en múltiples formatos (CSV,
   - `Paralelo` — procesa archivos simultáneamente con el patrón Coordinator/Worker
   - `Benchmark` — compara el rendimiento secuencial vs paralelo con gráfica Chart.js
 - **Formatos soportados** — CSV (datos de ventas), JSON (usuarios y sesiones), LOG (niveles de sistema)
-- **Interfaz reactiva con LiveView** — feedback en tiempo real durante el procesamiento, drag & drop, barras de progreso de subida
+- **Interfaz reactiva con LiveView** — feedback en tiempo real, drag & drop, barras de progreso, filtros sin recarga, modal de confirmación
+- **Detección de resultados parciales** — archivos con datos corruptos se marcan como `partial` en lugar de `success`
 - **Historial de ejecuciones** — almacenado en PostgreSQL con filtros por modo y fecha
 - **Descarga de reportes** — exporta el resultado de cada ejecución como `.txt`
 - **Tema claro/oscuro** — soporte completo en todos los componentes
@@ -36,97 +37,66 @@ Visita [`localhost:4000`](http://localhost:4000) desde el navegador. La ruta ra�
 
 1. Ve a `/processing`, arrastra archivos o usa el botón de selección
 2. Elige el modo de procesamiento (Secuencial, Paralelo o Benchmark)
-3. Pulsa **Procesar archivos** — el progreso se actualiza en tiempo real
-4. Al finalizar, el resultado se guarda en el historial (`/executions`)
-5. Desde el historial puedes ver el reporte detallado, descargarlo o eliminar ejecuciones
+3. Pulsa **Procesar archivos** — el progreso se actualiza en tiempo real por archivo
+4. Al finalizar, el resultado se guarda automáticamente en el historial (`/executions`)
+5. Desde el historial puedes filtrar por modo o fecha, ver el reporte detallado, descargarlo como `.txt` o eliminar ejecuciones con confirmación modal
 
 ## Estructura del proyecto
 
 ```
+lib/
+├── file_processor/                       # Contexto y lógica de negocio
+│   ├── core_adapter.ex                   # Puente entre Phoenix y el core Elixir puro
+│   │                                     # Incluye enrich_result/2 para detección de parciales
+│   ├── execution_helpers.ex              # Helpers de presentación (fechas, íconos, métricas)
+│   ├── executions.ex                     # Contexto Ecto — queries, filtros y estadísticas
+│   ├── executions/
+│   │   └── execution.ex                  # Schema Ecto
+│   ├── report_builder.ex                 # Construcción de reportes por modo
+│   └── repo.ex
+│
+├── file_processor/                       # Core de procesamiento (Elixir puro, sin Phoenix)
+│   ├── coordinador.ex                    # Patrón Coordinator/Worker
+│   ├── worker.ex
+│   ├── procesador_archivos.ex            # Orquestador principal
+│   ├── csv_parser.ex
+│   ├── json_parser.ex
+│   ├── log_parser.ex
+│   └── procesar_con_manejo_errores.ex
+│
+└── file_processor_web/                   # Capa web Phoenix
+    ├── live/
+    │   ├── processing_live.ex            # LiveView — subida y procesamiento en tiempo real
+    │   ├── execution_live.ex             # LiveView — historial con filtros reactivos y modal
+    │   ├── execution_live.html.heex
+    │   ├── execution_show_live.ex        # LiveView — reporte detallado por archivo
+    │   └── execution_show_live.html.heex
+    ├── controllers/
+    │   ├── execution_controller.ex       # Solo download, delete y delete_all
+    │   ├── execution_html.ex             # Helpers de parseo y presentación para LiveViews
+    │   └── page_controller.ex            # Redirige / → /processing
+    ├── router.ex
+    └── endpoint.ex
+
 assets/
 └── js/
-    └── app.js                        # Hook DropZone para drag & drop en LiveView
+    └── app.js                            # Hook DropZone (drag & drop) + renderBenchmarkChart
 
-file_processor_phoenix/
-│
-├── assets/                          # Recursos frontend (JS, CSS)
-│   ├── css/
-│   └── js/
-│       └── app.js                   # Inicializa LiveView, hooks JS y manejo de eventos en el navegador
-│
-├── config/                          # Configuración de la aplicación Phoenix
-│
-├── lib/
-│   │
-│   ├── file_processor/              # Contexto y lógica de negocio principal
-│   │   ├── application.ex           # Punto de inicio de la aplicación y supervisores
-│   │   ├── core_adapter.ex          # Conecta Phoenix con el procesador de archivos del core
-│   │   ├── coordinator.ex           # Coordina workers para procesamiento paralelo
-│   │   ├── worker.ex                # Worker que procesa archivos individuales
-│   │   ├── procesador_archivos.ex   # Orquestador principal del procesamiento de archivos
-│   │   ├── procesar_con_manejo_errores.ex # Procesamiento con captura y reporte de errores
-│   │   ├── csv_parser.ex            # Parser para archivos CSV
-│   │   ├── json_parser.ex           # Parser para archivos JSON
-│   │   ├── log_parser.ex            # Parser para archivos LOG
-│   │   ├── report_builder.ex        # Genera reportes a partir de los resultados del procesamiento
-│   │   ├── execution_helpers.ex     # Funciones auxiliares para métricas, formato de datos e íconos
-│   │   ├── executions.ex            # Contexto Ecto para consultar ejecuciones y aplicar filtros
-│   │   ├── repo.ex                  # Configuración del repositorio Ecto (acceso a base de datos)
-│   │   └── executions/
-│   │       └── execution.ex         # Schema Ecto que representa una ejecución en la base de datos
-│   │
-│   ├── file_processor_web/          # Capa web de Phoenix
-│   │   │
-│   │   ├── components/              # Componentes reutilizables de UI
-│   │   │   └── core_components.ex   # Componentes Phoenix como tablas, botones y alerts
-│   │   │
-│   │   ├── layouts/                 # Layouts globales de la aplicación
-│   │   │   ├── layouts.ex           # Define los layouts disponibles
-│   │   │   └── root.html.heex       # Layout principal de la aplicación
-│   │   │
-│   │   ├── controllers/             # Controladores HTTP tradicionales
-│   │   │   ├── execution_controller.ex   # Controlador para historial y detalle de ejecuciones
-│   │   │   ├── processing_controller.ex  # Controlador para procesamiento tradicional (fallback)
-│   │   │   ├── execution_html.ex         # Renderiza templates de ejecuciones
-│   │   │   ├── processing_html.ex        # Renderiza templates de procesamiento
-│   │   │   ├── page_controller.ex        # Controlador de páginas básicas
-│   │   │   ├── page_html.ex              # Templates de páginas básicas
-│   │   │   ├── error_html.ex             # Templates de errores HTML
-│   │   │   └── error_json.ex             # Respuestas de error en formato JSON
-│   │   │
-│   │   │   └── execution_html/
-│   │   │       ├── index.html.heex       # Vista del historial de ejecuciones
-│   │   │       └── show_with_styles.html.heex # Vista detallada de una ejecución con estilos
-│   │   │
-│   │   ├── live/                    # LiveViews para interfaces dinámicas
-│   │   │   ├── processing_live.ex        # LiveView para subir archivos y procesarlos en tiempo real
-│   │   │   ├── execution_live.ex         # LiveView que muestra el historial de ejecuciones
-│   │   │   ├── execution_live.html.heex  # Vista del historial usando LiveView
-│   │   │   ├── execution_show_live.ex    # LiveView para mostrar el detalle de una ejecución
-│   │   │   └── execution_show_live.html.heex # Vista del reporte detallado de ejecución
-│   │   │
-│   │   ├── router.ex                # Define rutas HTTP y LiveView de la aplicación
-│   │   ├── endpoint.ex              # Punto de entrada del servidor Phoenix
-│   │   ├── telemetry.ex             # Métricas y monitoreo de la aplicación
-│   │   └── gettext.ex               # Internacionalización (traducciones)
-│   │
-│   ├── file_processor.ex            # Módulo raíz del contexto principal
-│   └── file_processor_web.ex        # Helpers y macros para controllers, views y LiveViews
-│
-├── output/                          # Carpeta donde se guardan los reportes generados
-│
-├── priv/
-│   ├── repo/
-│   │   └── migrations/              # Migraciones de base de datos
-│   └── uploads/                     # Archivos subidos para procesamiento
-│
-├── test/                            # Pruebas unitarias y de integración
-│
-├── mix.exs                          # Configuración del proyecto y dependencias
-├── mix.lock                         # Versiones exactas de dependencias
-├── README.md                        # Documentación del proyecto
-├── CHANGELOG.md                     # Registro de cambios del proyecto
-└── .formatter.exs                   # Configuración de formateo de código
+test/
+├── file_processor/
+│   ├── executions_test.exs               # CRUD, filtros y estadísticas
+│   └── report_builder_test.exs           # Formato de reportes por modo y tipo de archivo
+├── file_processor_web/
+│   ├── execution_html_test.exs           # Helpers de parseo y presentación
+│   ├── controllers/
+│   │   ├── execution_controller_test.exs # download, delete, delete_all
+│   │   └── page_controller_test.exs
+│   └── live/
+│       ├── execution_live_test.exs       # Filtros reactivos y modal de confirmación
+│       └── execution_show_live_test.exs  # Reporte, métricas y navegación
+└── support/
+    └── fixtures/
+        └── executions_fixtures.ex
 ```
 
 ## Tests
@@ -134,6 +104,14 @@ file_processor_phoenix/
 ```bash
 mix test
 ```
+
+## Estados de ejecución
+
+| Estado | Descripción |
+|--------|-------------|
+| `success` | Todos los archivos procesados correctamente |
+| `partial` | Uno o más archivos tienen líneas o registros inválidos |
+| `error` | Todos los archivos fallaron |
 
 ## Tecnologías
 
