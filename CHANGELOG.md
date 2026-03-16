@@ -6,28 +6,63 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.
 
 ---
 
-## [Unreleased — 2026-03-15] — Correcciones post-integración
+## [Unreleased] — Tests
 > 👤 Alex Gomez
+
+### Pendiente de commit
+
+- Tests por agregar
+
+---
+
+## [0.6.0] — 2026-03-15 — Modal de confirmación + rediseño UX reporte + limpieza
+> 👤 Alex Gomez
+
+### Añadido
+
+- `execution_live.ex` — modal de confirmación LiveView para eliminar ejecuciones.
+  Cuatro nuevos eventos: `confirm_delete`, `confirm_delete_all`, `cancel_modal`,
+  `delete`, `delete_all`. El modal muestra contenido distinto para eliminar uno
+  vs limpiar todo. Se cierra con `Escape` o click en backdrop. Reemplaza
+  `data-confirm` nativo del browser.
+
+### Cambiado
+
+- `execution_live.html.heex` — botones de eliminar migrados de `<.link
+  method="delete" data-confirm>` a `phx-click="confirm_delete"`. Modal añadido
+  al final del template con backdrop blur, ícono de advertencia, mensaje
+  contextual y botones Cancelar / Confirmar.
+
+- `execution_show_live.html.heex` — rediseño UX completo del reporte:
+  - Tarjetas de resumen con gradiente y color semántico por modo (azul/verde/
+    morado/naranja/esmeralda)
+  - Métricas visuales por tipo de archivo: CSV (registros, productos, ventas),
+    JSON (usuarios, activos, sesiones), LOG (total + 5 niveles con color
+    semántico por severidad)
+  - Collapses con `divide-y` y fondo diferenciado al expandir
+  - `<pre>` de salida completa con borde de color según estado del archivo
+
+- `execution_controller.ex` — eliminadas acciones `index` y `show` (migradas a
+  LiveView). Solo conserva `download`, `delete` y `delete_all`.
+
+- `execution_html.ex` — eliminadas funciones duplicadas del controller. Solo
+  conserva las que usan los LiveViews: `parse_execution_files/1`,
+  `extract_file_section/1`, `extract_metrics/2`, `get_execution_summary/1`,
+  `extract_benchmark_data/1`, `file_icon/1`, helpers de formato y modo.
 
 ### Corregido
 
-- `execution_show_live.ex` — doble llamada a `parse_execution_files/1`: se
-  llamaba en `mount` y de nuevo dentro de `get_execution_summary`. Corregido
-  parseando una sola vez en `mount` y pasando el resultado a `build_summary/2`.
+- Comentarios `<%#` migrados a `<%!-- --%>` (sintaxis deprecated en HEEx 1.7+).
 
-- `execution_html.ex` — `has_error?` ahora usa `execution.status != "success"`
-  en lugar de parsear el texto del reporte, que siempre contenía
-  `"❌ Errores: 0"` aunque no hubiera errores.
+### Eliminado
 
-- `execution_html.ex` — `get_execution_summary/1` reemplaza búsqueda de
-  `✅ Exitosos:` por `Regex.scan` sobre `• Estado: éxito` / `• Estado: error`
-  / `• Estado: parcial`, compatible con todos los formatos de reporte.
-
-- `execution_html.ex` — `extract_benchmark_data/1` corregido con patrones regex
-  que reconocen prefijos emoji (`📈 Secuencial:`, `⚡ Paralelo:`).
-
-- `report_builder.ex` — eliminada cláusula `_` inalcanzable en `status_label/1`
-  detectada por Dialyzer.
+- `controllers/execution_html/show_with_styles.html.heex` — huérfano tras
+  migración a `ExecutionShowLive`
+- `controllers/execution_html/index.html.heex` — huérfano tras migración a
+  `ExecutionLive`
+- `controllers/processing_controller.ex` — reemplazado por `ProcessingLive`
+- `controllers/processing_html.ex` — módulo del controller eliminado
+- `controllers/processing_html/new.html.heex` — template del controller eliminado
 
 ---
 
@@ -96,41 +131,29 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.
 
 ### Cambiado
 
-- `execution_html.ex` — añadidas funciones de presentación: `format_date/1`,
-  `format_time/1`, `format_datetime/1`, `mode_badge_color/1`,
-  `mode_display_name/1`, `extract_benchmark_data/1`. `parse_execution_files/1`
-  detecta modo benchmark y devuelve item único con reporte completo.
+- `execution_html.ex` — añadidas funciones de presentación, `parse_execution_files/1`
+  detecta modo benchmark, `get_execution_summary/1` usa `Regex.scan`,
+  `extract_benchmark_data/1` reconoce prefijos emoji.
 
-- `report_builder.ex` — `format_file_result/1` acepta `:partial` además de
-  `:success` y escribe `• Estado: parcial`. Añadido `status_label/1`.
+- `report_builder.ex` — `format_file_result/1` acepta `:partial` y escribe
+  `• Estado: parcial`. Añadido `status_label/1`. Eliminada cláusula `_`
+  inalcanzable detectada por Dialyzer.
 
-- `processing_live.ex` — `finalize_execution/1` distingue tres estados de BD:
-  `"success"` / `"partial"` / `"error"`. `:partial` se muestra en amarillo
-  con `⚠️ parcial` en tiempo real.
+- `processing_live.ex` — `finalize_execution/1` distingue tres estados:
+  `"success"` / `"partial"` / `"error"`.
 
-- `index.html.heex` — rediseño UX: tarjetas con gradiente, filtros con estado
-  activo por color, filtros de fecha, badges con heroicons, estado vacío
-  contextual. Botón "Historial" en header de `ProcessingLive`.
+- `index.html.heex` — rediseño UX completo con gradientes, filtros reactivos,
+  badges con heroicons. Botón "Historial" en header de `ProcessingLive`.
 
-- `show_with_styles.html.heex` — Tailwind puro sin DaisyUI, `<details>/<summary>`
-  nativo, gráfica Chart.js 4.4 con soporte dark mode, `max-h-64` en `<pre>`.
+- `show_with_styles.html.heex` — Tailwind puro, Chart.js 4.4, dark mode.
 
 - `config/config.exs` — registrado MIME type `text/plain` para `.log`.
 
 ### Corregido
 
-- Benchmark no guardaba en BD — `file_states` en modo benchmark no contenía
-  nombres reales. `start_processing/1` ahora guarda `filenames` como assign
-  separado.
-
-- Archivos corruptos marcados como "Éxito" — el core filtra líneas inválidas
-  silenciosamente. Corregido con `enrich_result/2` sin modificar el core.
-
-- "No se encontraron resultados" en modo benchmark — `parse_execution_files/1`
-  buscaba secciones `[archivo]` inexistentes en ese formato.
-
-- Estado "Parcial" incorrecto en ejecuciones exitosas — `finalize_execution/1`
-  solo reconocía `%{status: :success}`. Corregido con `result_success?/1`.
+- Benchmark no guardaba en BD, archivos corruptos marcados "Éxito",
+  "No se encontraron resultados" en benchmark, estado "Parcial" incorrecto
+  en ejecuciones exitosas.
 
 ---
 
@@ -140,8 +163,7 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.
 ### Añadido
 
 - `lib/file_processor/execution_helpers.ex` — módulo centralizado con funciones
-  de presentación: formateo de fechas, íconos, badges de modo, extracción de
-  métricas y datos de benchmark. Sin dependencias de Phoenix.
+  de presentación sin dependencias de Phoenix.
 
 - `lib/file_processor/report_builder.ex` — construcción de reportes por modo
   (`build_sequential/2`, `build_parallel/2`, `build_benchmark/2`).
@@ -149,20 +171,20 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.
 ### Cambiado
 
 - `core_adapter.ex` — `process_sequential/1` usa `ProcesadorArchivos.process_file/1`.
-  Corrige cálculo de ventas y productos en CSV. Limpieza automática de `output/`.
+  Limpieza automática de `output/`.
 
 - `executions.ex` — `get_statistics/0` con una sola query `group_by`.
-  `list_executions_filtered/1` con filtros encadenados por modo y fecha.
+  `list_executions_filtered/1` con filtros encadenados.
 
 - `execution_controller.ex` — eliminadas 12 funciones de presentación.
 
-- `router.ex` — rutas explícitas, orden corregido (`delete_all` antes de `/:id`).
+- `router.ex` — rutas explícitas, orden corregido.
 
 ### Eliminado
 
 - `show.html.heex`, `new.html.heex`, `edit.html.heex`, `execution_form.html.heex`
 - `CoreAdapter.extract_benchmark_summary/1`
-- Datos hardcodeados del benchmark en `CoreAdapter`
+- Datos hardcodeados del benchmark
 
 ---
 

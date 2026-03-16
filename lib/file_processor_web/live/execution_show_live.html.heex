@@ -1,17 +1,17 @@
 <Layouts.app flash={@flash}>
+
+  <%!-- ── HEADER ─────────────────────────────────────────────────── --%>
   <.header>
     Reporte de Ejecución
     <:subtitle>
       {FileProcessorWeb.ExecutionHTML.format_datetime(@execution.timestamp)}
     </:subtitle>
-
     <:actions>
       <.link navigate={~p"/executions"}>
         <button class="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
           <.icon name="hero-arrow-left" class="w-4 h-4" /> Volver al historial
         </button>
       </.link>
-
       <.link href={~p"/executions/#{@execution.id}/download"}>
         <button class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
           <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> Descargar TXT
@@ -19,237 +19,299 @@
       </.link>
     </:actions>
   </.header>
-  
-<!-- TARJETAS DE RESUMEN -->
 
-  <% summary = @summary %>
-
+  <%!-- ── TARJETAS DE RESUMEN ────────────────────────────────────── --%>
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
-      <div class="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase mb-2">
-        Modo
-      </div>
 
-      <div class="text-lg font-bold text-gray-900 dark:text-white">
+    <%!-- Modo — color según tipo --%>
+    <div class={[
+      "rounded-2xl p-5 border shadow-sm",
+      case @execution.mode do
+        "sequential" -> "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-800"
+        "parallel"   -> "bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-800"
+        "benchmark"  -> "bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200 dark:border-purple-800"
+        _            -> "bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 border-gray-200 dark:border-gray-600"
+      end
+    ]}>
+      <div class={[
+        "text-xs font-semibold uppercase tracking-wider mb-3",
+        case @execution.mode do
+          "sequential" -> "text-blue-500 dark:text-blue-400"
+          "parallel"   -> "text-green-500 dark:text-green-400"
+          "benchmark"  -> "text-purple-500 dark:text-purple-400"
+          _            -> "text-gray-500 dark:text-gray-400"
+        end
+      ]}>Modo</div>
+      <div class={[
+        "text-xl font-bold",
+        case @execution.mode do
+          "sequential" -> "text-blue-900 dark:text-blue-100"
+          "parallel"   -> "text-green-900 dark:text-green-100"
+          "benchmark"  -> "text-purple-900 dark:text-purple-100"
+          _            -> "text-gray-900 dark:text-white"
+        end
+      ]}>
         <%= case @execution.mode do %>
-          <% "sequential" -> %>
-            📋 Secuencial
-          <% "parallel" -> %>
-            ⚡ Paralelo
-          <% "benchmark" -> %>
-            📊 Benchmark
-          <% _ -> %>
-            {@execution.mode}
+          <% "sequential" -> %>📋 Secuencial
+          <% "parallel"   -> %>⚡ Paralelo
+          <% "benchmark"  -> %>📊 Benchmark
+          <% _            -> %>{@execution.mode}
         <% end %>
       </div>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
-      <div class="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase mb-2">
-        Archivos
-      </div>
-
-      <div class="text-3xl font-bold text-gray-900 dark:text-white">
-        {Map.get(summary, :total_files, 0)}
-      </div>
-
-      <div class="text-xs text-gray-400 mt-1">
-        procesados
-      </div>
+    <%!-- Archivos --%>
+    <div class="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-2xl p-5 border border-gray-200 dark:border-gray-600 shadow-sm">
+      <div class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Archivos</div>
+      <div class="text-4xl font-bold text-gray-900 dark:text-white leading-none">{@summary.total_files}</div>
+      <div class="text-xs text-gray-400 dark:text-gray-500 mt-2">procesados</div>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
-      <div class="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase mb-2">
-        Tiempo total
-      </div>
-
-      <div class="text-3xl font-bold text-gray-900 dark:text-white">
-        {summary.total_time}
-      </div>
-
-      <div class="text-xs text-gray-400 mt-1">
-        ms
-      </div>
+    <%!-- Tiempo --%>
+    <div class="bg-gradient-to-br from-orange-50 to-amber-100 dark:from-orange-900/20 dark:to-amber-800/20 rounded-2xl p-5 border border-orange-200 dark:border-orange-800 shadow-sm">
+      <div class="text-xs font-semibold uppercase tracking-wider text-orange-500 dark:text-orange-400 mb-3">Tiempo total</div>
+      <div class="text-4xl font-bold text-orange-900 dark:text-orange-100 leading-none">{@summary.total_time}</div>
+      <div class="text-xs text-orange-400 dark:text-orange-500 mt-2">milisegundos</div>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
-      <div class="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase mb-2">
-        Resultado
-      </div>
-
-      <div class="flex items-center gap-3 mt-1">
-        <span class="inline-flex items-center gap-1 text-green-600 dark:text-green-400 font-bold text-lg">
-          <.icon name="hero-check-circle" class="w-5 h-5" />
-          {summary.successes}
+    <%!-- Resultado --%>
+    <div class={[
+      "rounded-2xl p-5 border shadow-sm",
+      if(@summary.errors == 0,
+        do: "bg-gradient-to-br from-emerald-50 to-green-100 dark:from-emerald-900/20 dark:to-green-800/20 border-emerald-200 dark:border-emerald-800",
+        else: "bg-gradient-to-br from-yellow-50 to-amber-100 dark:from-yellow-900/20 dark:to-amber-800/20 border-yellow-200 dark:border-yellow-800"
+      )
+    ]}>
+      <div class={[
+        "text-xs font-semibold uppercase tracking-wider mb-3",
+        if(@summary.errors == 0, do: "text-emerald-600 dark:text-emerald-400", else: "text-yellow-600 dark:text-yellow-400")
+      ]}>Resultado</div>
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 font-bold text-xl">
+          <.icon name="hero-check-circle" class="w-5 h-5" /> {@summary.successes}
         </span>
-
-        <%= if summary.errors > 0 do %>
-          <span class="inline-flex items-center gap-1 text-yellow-600 dark:text-yellow-400 font-bold text-lg">
-            <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
-            {summary.errors}
+        <%= if @summary.errors > 0 do %>
+          <span class="text-gray-300 dark:text-gray-600">/</span>
+          <span class="inline-flex items-center gap-1.5 text-yellow-700 dark:text-yellow-300 font-bold text-xl">
+            <.icon name="hero-exclamation-triangle" class="w-5 h-5" /> {@summary.errors}
           </span>
         <% end %>
       </div>
-
-      <div class="text-xs mt-1">
-        <%= if summary.errors == 0 do %>
-          <span class="text-green-500 dark:text-green-400">
-            Completado exitosamente
-          </span>
-        <% else %>
-          <span class="text-yellow-500 dark:text-yellow-400">
-            Procesamiento parcial
-          </span>
-        <% end %>
+      <div class={[
+        "text-xs font-medium mt-2",
+        if(@summary.errors == 0, do: "text-emerald-600 dark:text-emerald-400", else: "text-yellow-600 dark:text-yellow-400")
+      ]}>
+        <%= if @summary.errors == 0, do: "✓ Completado exitosamente", else: "⚠ Procesamiento parcial" %>
       </div>
     </div>
   </div>
-  
-<!-- BENCHMARK -->
 
+  <%!-- ── BENCHMARK ──────────────────────────────────────────────── --%>
   <%= if @execution.mode == "benchmark" and @benchmark_data do %>
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-      <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-        <.icon name="hero-chart-bar" class="w-5 h-5 text-purple-500" />
-        Benchmark: Secuencial vs Paralelo
-      </h2>
-      
-<!-- BADGE -->
+    <% seq = Map.get(@benchmark_data, :sequential_ms, 0) * 1.0
+       par = Map.get(@benchmark_data, :parallel_ms, 0) * 1.0
+       diff = Float.round(abs(seq - par), 2)
+       speedup =
+         cond do
+           seq == 0 or par == 0 -> 1.0
+           seq > par -> Float.round(seq / par, 2)
+           true      -> Float.round(par / seq, 2)
+         end
+       efficiency =
+         if max(seq, par) > 0,
+           do: Float.round(diff / max(seq, par) * 100, 2),
+           else: 0.0
+       paralelo_gana = par < seq %>
 
-      <div class="flex justify-center mb-4">
-        <span class="inline-flex items-center gap-2 px-4 py-1 rounded-full text-sm font-medium
-                   bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-          ⚡
-          <%= if @benchmark_data.parallel_ms < @benchmark_data.sequential_ms do %>
-            Paralelo más rápido
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+          <.icon name="hero-chart-bar" class="w-5 h-5 text-purple-500" />
+          Benchmark: Secuencial vs Paralelo
+        </h2>
+        <span class={[
+          "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold",
+          if(paralelo_gana,
+            do: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+            else: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+          )
+        ]}>
+          <%= if paralelo_gana do %>
+            <.icon name="hero-bolt" class="w-3.5 h-3.5" /> Paralelo más rápido
           <% else %>
-            Secuencial más rápido
+            <.icon name="hero-document-text" class="w-3.5 h-3.5" /> Secuencial más rápido
           <% end %>
         </span>
       </div>
-      
-<!-- GRÁFICA -->
 
-      <div class="mb-6">
+      <div class="mb-6 px-2">
         <canvas
           id="benchmarkChart"
           data-secuencial={@benchmark_data.sequential_ms}
           data-paralelo={@benchmark_data.parallel_ms}
-          height="120"
-        >
-        </canvas>
+          height="110"
+        ></canvas>
       </div>
-      
-<!-- MÉTRICAS -->
 
-      <% seq = Map.get(@benchmark_data, :sequential_ms, 0) * 1.0
-      par = Map.get(@benchmark_data, :parallel_ms, 0) * 1.0
-
-      diff = Float.round(abs(seq - par), 2)
-
-      speedup =
-        cond do
-          seq == 0 or par == 0 ->
-            1
-
-          seq > par ->
-            Float.round(seq / par, 2)
-
-          true ->
-            Float.round(par / seq, 2)
-        end
-
-      efficiency =
-        if max(seq, par) > 0 do
-          Float.round(diff / max(seq, par) * 100, 2)
-        else
-          0
-        end %>
-
-      <div class="grid grid-cols-3 gap-6 mt-4 text-center">
-        <div>
-          <div class="text-xs uppercase text-gray-500 dark:text-gray-400 mb-1">
-            Factor de mejora
+      <div class="border-t border-gray-100 dark:border-gray-700 pt-5">
+        <div class="grid grid-cols-3 gap-4">
+          <div class="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 text-center border border-purple-100 dark:border-purple-800">
+            <div class="text-xs font-semibold uppercase tracking-wider text-purple-500 dark:text-purple-400 mb-2">Factor de mejora</div>
+            <div class="text-3xl font-bold text-purple-700 dark:text-purple-300">
+              {speedup}<span class="text-base font-normal">x</span>
+            </div>
           </div>
-
-          <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">
-            {speedup}x
+          <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-center border border-gray-100 dark:border-gray-600">
+            <div class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">Diferencia</div>
+            <div class="text-3xl font-bold text-gray-800 dark:text-white">
+              {diff}<span class="text-base font-normal text-gray-400 dark:text-gray-500"> ms</span>
+            </div>
           </div>
-        </div>
-
-        <div>
-          <div class="text-xs uppercase text-gray-500 dark:text-gray-400 mb-1">
-            Diferencia
-          </div>
-
-          <div class="text-2xl font-bold text-gray-900 dark:text-white">
-            {diff} ms
-          </div>
-        </div>
-
-        <div>
-          <div class="text-xs uppercase text-gray-500 dark:text-gray-400 mb-1">
-            Eficiencia
-          </div>
-
-          <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {efficiency}%
+          <div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 text-center border border-blue-100 dark:border-blue-800">
+            <div class="text-xs font-semibold uppercase tracking-wider text-blue-500 dark:text-blue-400 mb-2">Eficiencia</div>
+            <div class="text-3xl font-bold text-blue-700 dark:text-blue-300">
+              {efficiency}<span class="text-base font-normal">%</span>
+            </div>
           </div>
         </div>
       </div>
     </div>
   <% end %>
-  
-<!-- RESULTADOS POR ARCHIVO -->
 
-  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-      <.icon name="hero-document-text" class="w-5 h-5 text-blue-500" /> Resultados por archivo
-    </h2>
+  <%!-- ── RESULTADOS POR ARCHIVO ─────────────────────────────────── --%>
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
 
-    <div class="space-y-3">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+      <h2 class="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+        <.icon name="hero-document-text" class="w-5 h-5 text-blue-500" />
+        Resultados por archivo
+      </h2>
+      <span class="text-xs text-gray-400 dark:text-gray-500">
+        {@summary.total_files} archivo<%= if @summary.total_files != 1, do: "s" %>
+      </span>
+    </div>
+
+    <div class="divide-y divide-gray-100 dark:divide-gray-700">
       <%= for file_info <- @files do %>
-        <details class="group bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600 overflow-hidden">
-          <summary class="flex items-center gap-3 p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors list-none">
+        <details class="group">
+
+          <%!-- ── Summary row ── --%>
+          <summary class="flex items-center gap-3 px-6 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors list-none select-none">
             <.icon
               name="hero-chevron-right"
-              class="w-4 h-4 text-gray-400 transition-transform group-open:rotate-90"
+              class="w-4 h-4 text-gray-400 transition-transform duration-200 group-open:rotate-90 shrink-0"
             />
-
-            <span class="text-2xl">
-              {FileProcessorWeb.ExecutionHTML.file_icon(file_info.extension)}
-            </span>
-
-            <span class="flex-1 font-mono text-sm font-medium text-gray-900 dark:text-white truncate">
+            <span class="text-xl shrink-0">{FileProcessorWeb.ExecutionHTML.file_icon(file_info.extension)}</span>
+            <span class="flex-1 font-mono text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
               {file_info.name}
             </span>
-
-            <%= if file_info.has_error do %>
-              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
-                           bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                <.icon name="hero-exclamation-triangle" class="w-3 h-3" /> Parcial
-              </span>
-            <% else %>
-              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
-                           bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                <.icon name="hero-check" class="w-3 h-3" /> Éxito
-              </span>
+            <%= cond do %>
+              <% file_info.status_text == "Error" -> %>
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 shrink-0">
+                  <.icon name="hero-x-circle" class="w-3 h-3" /> Error
+                </span>
+              <% file_info.has_error -> %>
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 shrink-0">
+                  <.icon name="hero-exclamation-triangle" class="w-3 h-3" /> Parcial
+                </span>
+              <% true -> %>
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 shrink-0">
+                  <.icon name="hero-check-circle" class="w-3 h-3" /> Éxito
+                </span>
             <% end %>
           </summary>
 
-          <div class="px-4 pb-4">
-            <pre class="whitespace-pre-wrap font-mono text-xs
-                       bg-gray-50 dark:bg-gray-900
-                       text-gray-800 dark:text-gray-300
-                       p-4 rounded-lg border border-gray-200 dark:border-gray-700
-                       overflow-x-auto max-h-64 overflow-y-auto">
+          <%!-- ── Contenido expandido ── --%>
+          <div class="px-6 pb-6 pt-2 bg-gray-50/50 dark:bg-gray-900/20">
 
-{file_info.details}
+            <%!-- Métricas CSV --%>
+            <%= if file_info.extension == ".csv" do %>
+              <div class="grid grid-cols-3 gap-3 mb-4">
+                <div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 text-center border border-blue-100 dark:border-blue-800">
+                  <div class="text-xs font-semibold text-blue-500 dark:text-blue-400 uppercase tracking-wider mb-2">Registros válidos</div>
+                  <div class="text-3xl font-bold text-blue-900 dark:text-blue-200">{file_info.metrics.valid_records}</div>
+                </div>
+                <div class="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 text-center border border-purple-100 dark:border-purple-800">
+                  <div class="text-xs font-semibold text-purple-500 dark:text-purple-400 uppercase tracking-wider mb-2">Productos únicos</div>
+                  <div class="text-3xl font-bold text-purple-900 dark:text-purple-200">{file_info.metrics.unique_products}</div>
+                </div>
+                <div class="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 text-center border border-emerald-100 dark:border-emerald-800">
+                  <div class="text-xs font-semibold text-emerald-500 dark:text-emerald-400 uppercase tracking-wider mb-2">Ventas totales</div>
+                  <div class="text-2xl font-bold text-emerald-900 dark:text-emerald-200">${file_info.metrics.total_sales}</div>
+                </div>
+              </div>
+            <% end %>
 
-            </pre>
+            <%!-- Métricas JSON --%>
+            <%= if file_info.extension == ".json" do %>
+              <div class="grid grid-cols-3 gap-3 mb-4">
+                <div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 text-center border border-blue-100 dark:border-blue-800">
+                  <div class="text-xs font-semibold text-blue-500 dark:text-blue-400 uppercase tracking-wider mb-2">Total usuarios</div>
+                  <div class="text-3xl font-bold text-blue-900 dark:text-blue-200">{file_info.metrics.total_users}</div>
+                </div>
+                <div class="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 text-center border border-emerald-100 dark:border-emerald-800">
+                  <div class="text-xs font-semibold text-emerald-500 dark:text-emerald-400 uppercase tracking-wider mb-2">Usuarios activos</div>
+                  <div class="text-3xl font-bold text-emerald-900 dark:text-emerald-200">{file_info.metrics.active_users}</div>
+                </div>
+                <div class="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 text-center border border-purple-100 dark:border-purple-800">
+                  <div class="text-xs font-semibold text-purple-500 dark:text-purple-400 uppercase tracking-wider mb-2">Total sesiones</div>
+                  <div class="text-3xl font-bold text-purple-900 dark:text-purple-200">{file_info.metrics.total_sessions}</div>
+                </div>
+              </div>
+            <% end %>
+
+            <%!-- Métricas LOG --%>
+            <%= if file_info.extension == ".log" do %>
+              <div class="grid grid-cols-3 md:grid-cols-6 gap-2 mb-4">
+                <div class="bg-gray-100 dark:bg-gray-700 rounded-xl p-3 text-center border border-gray-200 dark:border-gray-600 col-span-3 md:col-span-1">
+                  <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Total</div>
+                  <div class="text-2xl font-bold text-gray-800 dark:text-white">{file_info.metrics.total_lines}</div>
+                  <div class="text-xs text-gray-400 mt-1">líneas</div>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 text-center border border-gray-200 dark:border-gray-600">
+                  <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">DEBUG</div>
+                  <div class="text-2xl font-bold text-gray-500 dark:text-gray-300">{file_info.metrics.debug}</div>
+                </div>
+                <div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 text-center border border-blue-100 dark:border-blue-800">
+                  <div class="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-2">INFO</div>
+                  <div class="text-2xl font-bold text-blue-700 dark:text-blue-300">{file_info.metrics.info}</div>
+                </div>
+                <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl p-3 text-center border border-yellow-100 dark:border-yellow-800">
+                  <div class="text-xs font-semibold text-yellow-600 uppercase tracking-wider mb-2">WARN</div>
+                  <div class="text-2xl font-bold text-yellow-700 dark:text-yellow-300">{file_info.metrics.warn}</div>
+                </div>
+                <div class="bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-center border border-red-100 dark:border-red-800">
+                  <div class="text-xs font-semibold text-red-500 uppercase tracking-wider mb-2">ERROR</div>
+                  <div class="text-2xl font-bold text-red-700 dark:text-red-300">{file_info.metrics.error}</div>
+                </div>
+                <div class="bg-red-100 dark:bg-red-900/30 rounded-xl p-3 text-center border border-red-200 dark:border-red-900">
+                  <div class="text-xs font-semibold text-red-700 uppercase tracking-wider mb-2">FATAL</div>
+                  <div class="text-2xl font-bold text-red-800 dark:text-red-400">{file_info.metrics.fatal}</div>
+                </div>
+              </div>
+            <% end %>
+
+            <%!-- Salida completa --%>
+            <div>
+              <div class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
+                Salida completa
+              </div>
+              <div class={[
+                "rounded-xl border overflow-hidden",
+                cond do
+                  file_info.status_text == "Error" -> "border-red-200 dark:border-red-800"
+                  file_info.has_error              -> "border-yellow-200 dark:border-yellow-800"
+                  true                             -> "border-gray-200 dark:border-gray-700"
+                end
+              ]}>
+                <pre class="whitespace-pre-wrap font-mono text-xs text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 p-4 overflow-x-auto max-h-64 overflow-y-auto leading-relaxed">{file_info.details}</pre>
+              </div>
+            </div>
+
           </div>
         </details>
       <% end %>
     </div>
   </div>
+
 </Layouts.app>
